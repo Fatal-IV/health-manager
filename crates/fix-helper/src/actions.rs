@@ -18,15 +18,17 @@ pub mod keys {
     pub const ITEM_NOT_FOUND: &str = "fix.result.item_not_found";
     pub const NOT_AVAILABLE: &str = "fix.result.not_available";
     pub const FAILED: &str = "fix.result.failed";
+    pub const TEMP_UNSUPPORTED: &str = "fix.result.temp_unsupported";
     /// Every key the helper can produce (checked against tr.json in tests).
     #[cfg_attr(not(test), allow(dead_code))]
-    pub const PRODUCED: [&str; 6] = [
+    pub const PRODUCED: [&str; 7] = [
         OK,
         INVALID,
         NOT_ELEVATED,
         ITEM_NOT_FOUND,
         NOT_AVAILABLE,
         FAILED,
+        TEMP_UNSUPPORTED,
     ];
 }
 
@@ -180,28 +182,40 @@ fn clean_params(st: CleanStats, log: &mut Vec<String>) -> Params {
     ])
 }
 
-/// The temp directory must really (final path) be inside the user's profile;
-/// a `TMP`/`TEMP` pointing anywhere else is refused, so the helper cannot be
-/// aimed at other folders through its environment.
+/// True only when the temp directory in use (`actual`, a final path) IS the
+/// one allowed target (`expected`, the final path of
+/// `<token profile>\AppData\Local\Temp`). Case-insensitive; a trailing
+/// separator is ignored. A child, parent, sibling or other drive is refused.
+pub fn temp_target_ok(actual: &str, expected: &str) -> bool {
+    let norm = |s: &str| s.trim_end_matches('\\').to_lowercase();
+    let (a, e) = (norm(actual), norm(expected));
+    !e.is_empty() && a == e
+}
+
+/// The environment (`TMP`/`TEMP`) is not trusted: the only folder this fix
+/// cleans is `<token profile>\AppData\Local\Temp` (the folder the scan
+/// measures), and `temp_dir()` must resolve to exactly that. A custom temp
+/// folder (e.g. `D:\Temp`) is refused with `temp_unsupported`.
 #[cfg(windows)]
 fn clean_temp(log: &mut Vec<String>) -> Result<Params, &'static str> {
-    use crate::winfs::{final_path, path_is_within, user_profile_dir};
-    let temp = std::env::temp_dir();
-    let resolved = final_path(&temp).and_then(|root| {
-        let profile = final_path(&user_profile_dir()?)?;
-        Ok((root, profile))
-    });
-    let (root, profile) = resolved.map_err(|e| {
-        log.push(format!("temp directory not resolvable: {e}"));
+    use crate::winfs::{final_path, user_profile_dir};
+    let allowed = user_profile_dir()
+        .map(|p| p.join("AppData").join("Local").join("Temp"))
+        .and_then(|p| final_path(&p));
+    let expected = allowed.map_err(|e| {
+        log.push(format!("AppData\\Local\\Temp not resolvable: {e}"));
         keys::FAILED
     })?;
-    if !path_is_within(&root, &profile) {
+    let temp = std::env::temp_dir();
+    let actual = final_path(&temp).unwrap_or_default();
+    if !temp_target_ok(&actual, &expected) {
         log.push(format!(
-            "refused: temp directory {root} is outside the user profile {profile}"
+            "refused: temp directory {} is not {expected}; custom temp folders are not cleaned",
+            temp.display()
         ));
-        return Err(keys::FAILED);
+        return Err(keys::TEMP_UNSUPPORTED);
     }
-    Ok(clean_params(clean_dir_contents(&temp, &root), log))
+    Ok(clean_params(clean_dir_contents(&temp, &expected), log))
 }
 
 #[cfg(windows)]
@@ -397,6 +411,28 @@ mod tests {
             run(FixId::EndProcess, Some("x")).unwrap_err().key,
             keys::INVALID
         );
+    }
+
+    #[test]
+    fn temp_guard_requires_the_exact_local_temp_folder() {
+        let want = r"\\?\C:\Users\Ali\AppData\Local\Temp";
+        assert!(temp_target_ok(want, want));
+        assert!(temp_target_ok(r"\\?\c:\users\ali\appdata\local\TEMP", want));
+        assert!(temp_target_ok(&format!("{want}\\"), want));
+        for bad in [
+            r"\\?\C:\Users\Ali\AppData\Local\Temp\sub",
+            r"\\?\C:\Users\Ali\AppData\Local\Temp2",
+            r"\\?\C:\Users\Ali\AppData\Local\Tem",
+            r"\\?\C:\Users\Ali\Documents",
+            r"\\?\C:\Users\Ali\Desktop",
+            r"\\?\C:\Users\Ali",
+            r"\\?\C:\",
+            r"\\?\D:\Temp",
+            "",
+        ] {
+            assert!(!temp_target_ok(bad, want), "{bad}");
+        }
+        assert!(!temp_target_ok("", ""));
     }
 
     #[test]

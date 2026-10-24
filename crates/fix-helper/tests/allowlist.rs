@@ -190,6 +190,38 @@ fn missing_arg_for_disable_startup_item_is_rejected() {
 }
 
 #[test]
+fn clean_temp_refuses_a_custom_temp_folder() {
+    // A folder that is NOT <profile>\AppData\Local\Temp (it is a child of
+    // it here, named like Documents): the helper must refuse and delete nothing.
+    let dir = scratch("customtemp");
+    let docs = dir.join("Documents");
+    std::fs::create_dir_all(docs.join("Projeler")).unwrap();
+    let files = [
+        docs.join("tez.docx"),
+        docs.join("Projeler").join("bütçe.xlsx"),
+    ];
+    for f in &files {
+        std::fs::write(f, b"precious").unwrap();
+    }
+    let result = dir.join("result.json");
+    let out = Command::new(BIN)
+        .args(["--fix", "clean_temp", "--result"])
+        .arg(&result)
+        .env("TEMP", &docs)
+        .env("TMP", &docs)
+        .env("SAGLIK_LOG_DIR", dir.join("logs"))
+        .output()
+        .unwrap();
+    for f in &files {
+        assert!(f.is_file(), "{} was deleted", f.display());
+    }
+    assert_eq!(out.status.code(), Some(3));
+    let v: Value = serde_json::from_str(&std::fs::read_to_string(&result).unwrap()).unwrap();
+    assert_eq!(v["ok"], Value::Bool(false), "{v}");
+    assert_eq!(v["message"], "fix.result.temp_unsupported", "{v}");
+}
+
+#[test]
 fn deferred_fixes_exit_3_and_run_nothing() {
     let dir = scratch("deferred");
     let cases: &[&[&str]] = &[

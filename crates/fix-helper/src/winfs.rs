@@ -212,6 +212,110 @@ mod imp {
         Ok(PathBuf::from(String::from_utf16_lossy(&buf[..n])))
     }
 
+    /// Protected DACL for `ProgramData\SaglikDenetimi`: owner Administrators;
+    /// SYSTEM and Administrators full control, Users read & execute; inherited
+    /// by everything below (OICI); `P` blocks inheritance from ProgramData
+    /// (whose CREATOR OWNER rights would let users add files).
+    pub const LOG_DIR_SDDL: &str = "O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1200a9;;;BU)";
+
+    /// Owner of the object behind `f` is SYSTEM or BUILTIN\Administrators.
+    fn owner_is_trusted(f: &File) -> bool {
+        use windows::Win32::Foundation::{LocalFree, ERROR_SUCCESS, HLOCAL};
+        use windows::Win32::Security::Authorization::{GetSecurityInfo, SE_FILE_OBJECT};
+        use windows::Win32::Security::{
+            IsWellKnownSid, WinBuiltinAdministratorsSid, WinLocalSystemSid,
+            OWNER_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, PSID,
+        };
+        let mut owner = PSID::default();
+        let mut sd = PSECURITY_DESCRIPTOR::default();
+        let rc = unsafe {
+            GetSecurityInfo(
+                handle(f),
+                SE_FILE_OBJECT,
+                OWNER_SECURITY_INFORMATION,
+                Some(&mut owner),
+                None,
+                None,
+                None,
+                Some(&mut sd),
+            )
+        };
+        if rc != ERROR_SUCCESS {
+            return false;
+        }
+        let trusted = unsafe {
+            IsWellKnownSid(owner, WinLocalSystemSid).as_bool()
+                || IsWellKnownSid(owner, WinBuiltinAdministratorsSid).as_bool()
+        };
+        let _ = unsafe { LocalFree(HLOCAL(sd.0)) };
+        trusted
+    }
+
+    /// Inspects `p` WITHOUT following links. The owner is read through a
+    /// handle opened on the entry itself (not a link target), and the
+    /// handle's attributes are re-checked so a swap cannot slip a link in.
+    pub fn inspect_dir(p: &Path) -> crate::log::DirNode {
+        use crate::log::DirNode;
+        const READ_CONTROL: u32 = 0x0002_0000;
+        match std::fs::symlink_metadata(p) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return DirNode::Missing,
+            Err(_) => return DirNode::NotDir,
+            Ok(md) if is_reparse(&md) => return DirNode::Reparse,
+            Ok(md) if !md.is_dir() => return DirNode::NotDir,
+            Ok(_) => {}
+        }
+        let Ok(f) = std::fs::OpenOptions::new()
+            .access_mode(READ_CONTROL | FILE_READ_ATTRIBUTES)
+            .share_mode(SHARE_ALL)
+            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+            .open(p)
+        else {
+            return DirNode::NotDir;
+        };
+        match info(&f) {
+            Ok(i) if i.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 => DirNode::Reparse,
+            Ok(i) if i.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY == 0 => DirNode::NotDir,
+            Ok(_) => DirNode::Dir {
+                trusted_owner: owner_is_trusted(&f),
+            },
+            Err(_) => DirNode::NotDir,
+        }
+    }
+
+    /// Creates ONE directory (fails if anything already exists there), with
+    /// the security descriptor `sddl`, or inheriting from the parent if `None`.
+    pub fn create_dir_protected(p: &Path, sddl: Option<&str>) -> io::Result<()> {
+        use windows::Win32::Foundation::{LocalFree, HLOCAL};
+        use windows::Win32::Security::Authorization::{
+            ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
+        };
+        use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
+        use windows::Win32::Storage::FileSystem::CreateDirectoryW;
+        let path = HSTRING::from(p.as_os_str());
+        let Some(sddl) = sddl else {
+            return unsafe { CreateDirectoryW(pcwstr(&path), None) }.map_err(io::Error::other);
+        };
+        let s = HSTRING::from(sddl);
+        let mut sd = PSECURITY_DESCRIPTOR::default();
+        unsafe {
+            ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                pcwstr(&s),
+                SDDL_REVISION_1,
+                &mut sd,
+                None,
+            )
+        }
+        .map_err(io::Error::other)?;
+        let sa = SECURITY_ATTRIBUTES {
+            nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+            lpSecurityDescriptor: sd.0,
+            bInheritHandle: false.into(),
+        };
+        let r = unsafe { CreateDirectoryW(pcwstr(&path), Some(&sa)) };
+        let _ = unsafe { LocalFree(HLOCAL(sd.0)) };
+        r.map_err(io::Error::other)
+    }
+
     /// Wide string helper for registry/service APIs.
     pub fn wide(s: &str) -> HSTRING {
         HSTRING::from(s)
@@ -266,6 +370,64 @@ mod tests {
         assert!(plain.is_ok());
         drop(plain);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn inspect_dir_sees_owner_links_and_missing_without_following() {
+        use crate::log::DirNode;
+        // ProgramData is owned by SYSTEM.
+        assert_eq!(
+            inspect_dir(&program_data().unwrap()),
+            DirNode::Dir {
+                trusted_owner: true
+            }
+        );
+        let base = std::env::temp_dir().join(format!("fix-helper-insp-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).unwrap();
+        // A folder the (non-admin or admin) test user created: if the test
+        // runs elevated its owner is Administrators, otherwise the user.
+        let elevated = health_core::probe::windows::is_elevated().unwrap_or(true);
+        assert_eq!(
+            inspect_dir(&base),
+            DirNode::Dir {
+                trusted_owner: elevated
+            }
+        );
+        assert_eq!(inspect_dir(&base.join("nope")), DirNode::Missing);
+        std::fs::write(base.join("file"), b"x").unwrap();
+        assert_eq!(inspect_dir(&base.join("file")), DirNode::NotDir);
+        let cmd = health_core::probe::windows::system32_dir().join("cmd.exe");
+        let made = std::process::Command::new(cmd)
+            .args(["/c", "mklink", "/J"])
+            .arg(base.join("junction"))
+            .arg(program_data().unwrap())
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false);
+        if made {
+            // Points at a SYSTEM-owned folder, yet must be refused as a link.
+            assert_eq!(inspect_dir(&base.join("junction")), DirNode::Reparse);
+            let _ = std::fs::remove_dir(base.join("junction"));
+        }
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn create_dir_protected_creates_once() {
+        let p = std::env::temp_dir().join(format!("fix-helper-mkdir-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        // Same shape as LOG_DIR_SDDL, minus the owner (needs elevation) and
+        // with Users full control so the test can clean up.
+        let sddl = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;BU)";
+        create_dir_protected(&p, Some(sddl)).unwrap();
+        assert!(p.is_dir());
+        assert!(create_dir_protected(&p, Some(sddl)).is_err(), "exists");
+        create_dir_protected(&p.join("logs"), None).unwrap();
+        assert!(p.join("logs").is_dir());
+        std::fs::remove_dir_all(&p).unwrap();
     }
 
     #[cfg(windows)]

@@ -116,12 +116,13 @@
       "not_elevated": "Bu düzeltme yönetici izni gerektiriyor. Hiçbir değişiklik yapılmadı.",
       "item_not_found": "Bu başlangıç programı artık bulunamadı. Daha önce kaldırılmış olabilir.",
       "not_available": "Bu düzeltme bu sürümde henüz kullanılamıyor. Hiçbir değişiklik yapılmadı.",
-      "failed": "Düzeltme yapılamadı. Teknik ayrıntılar \"Ayrıntılar\" bölümünde."
+      "failed": "Düzeltme yapılamadı. Teknik ayrıntılar \"Ayrıntılar\" bölümünde.",
+      "temp_unsupported": "Bu bilgisayarda geçici dosyalar için özel bir klasör kullanılıyor. Güvenlik için bu klasör temizlenmez; hiçbir dosya silinmedi."
     },
     "clean_temp": {
       "summary": "Geçici dosyaları temizle",
       "change": {
-        "1": "Kullanıcı geçici klasöründeki dosyalar silinecek. Kullanımda olan dosyalara dokunulmaz.",
+        "1": "Kullanıcı geçici klasöründeki dosyalar silinecek. Kullanımda olan bazı dosyalar silinemeyebilir ve atlanır.",
         "2": "Silinen dosyalar geri alınamaz. Yapılan her işlem kayda geçirilir."
       }
     },

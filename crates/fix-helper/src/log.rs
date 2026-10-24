@@ -76,34 +76,105 @@ pub fn format_line(e: &LogEntry, now: SystemTime) -> String {
     format!("{v}\n")
 }
 
-/// The log directory. `SAGLIK_LOG_DIR` is honored ONLY in debug/test builds,
-/// so a released elevated helper cannot be redirected through its environment.
-pub fn log_dir() -> Option<PathBuf> {
-    #[cfg(debug_assertions)]
-    if let Some(d) = std::env::var_os("SAGLIK_LOG_DIR") {
-        return Some(PathBuf::from(d));
-    }
-    default_log_dir()
+/// What one log-path component is, seen WITHOUT following links.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DirNode {
+    Missing,
+    /// Symlink, junction or other reparse point.
+    Reparse,
+    /// Exists but is not a directory (or could not be inspected).
+    NotDir,
+    /// A real directory; `trusted_owner` = owned by SYSTEM or Administrators.
+    Dir {
+        trusted_owner: bool,
+    },
 }
 
-/// `ProgramData` from the known-folder API (not `%ProgramData%`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DirStep {
+    Use,
+    Create,
+}
+
+/// Decides, outermost first, what to do with each component of the log
+/// directory (`SaglikDenetimi`, `logs`). `None` = do not log at all: a
+/// component is a reparse point, not a directory, owned by someone other
+/// than SYSTEM/Administrators, or missing while we may not create it.
+/// Components below one we create are new as well and are not inspected.
+pub fn plan_dirs(
+    components: &[PathBuf],
+    inspect: impl Fn(&Path) -> DirNode,
+    may_create: bool,
+) -> Option<Vec<DirStep>> {
+    let mut steps = Vec::new();
+    let mut parent_created = false;
+    for c in components {
+        let node = if parent_created {
+            DirNode::Missing
+        } else {
+            inspect(c)
+        };
+        let step = match node {
+            DirNode::Missing if may_create => DirStep::Create,
+            DirNode::Dir {
+                trusted_owner: true,
+            } => DirStep::Use,
+            _ => return None,
+        };
+        parent_created = step == DirStep::Create;
+        steps.push(step);
+    }
+    Some(steps)
+}
+
+/// Resolves (and if needed creates) the log directory.
+///
+/// `SAGLIK_LOG_DIR` is honored ONLY in debug/test builds (and is exempt from
+/// the owner check there), so a released elevated helper cannot be
+/// redirected through its environment.
+pub fn prepare_log_dir() -> std::io::Result<PathBuf> {
+    #[cfg(debug_assertions)]
+    if let Some(d) = std::env::var_os("SAGLIK_LOG_DIR") {
+        let d = PathBuf::from(d);
+        std::fs::create_dir_all(&d)?;
+        return Ok(d);
+    }
+    prepare_default_log_dir()
+}
+
+/// `<ProgramData>\SaglikDenetimi\logs`, ProgramData from the known-folder
+/// API. Each component is checked without following links. Only an elevated
+/// helper creates the folders (a user-owned `SaglikDenetimi` would otherwise
+/// disable logging for the elevated helper for good); `SaglikDenetimi` gets
+/// a protected DACL that `logs` inherits.
 #[cfg(windows)]
-fn default_log_dir() -> Option<PathBuf> {
-    crate::winfs::program_data().map(|p| p.join("SaglikDenetimi").join("logs"))
+fn prepare_default_log_dir() -> std::io::Result<PathBuf> {
+    use crate::winfs::{create_dir_protected, inspect_dir, program_data, LOG_DIR_SDDL};
+    let base = program_data().ok_or_else(|| std::io::Error::other("no ProgramData"))?;
+    let outer = base.join("SaglikDenetimi");
+    let inner = outer.join("logs");
+    let comps = [outer, inner];
+    let elevated = health_core::probe::windows::is_elevated().unwrap_or(false);
+    let steps = plan_dirs(&comps, inspect_dir, elevated)
+        .ok_or_else(|| std::io::Error::other("log directory not trusted; logging skipped"))?;
+    for (i, (c, step)) in comps.iter().zip(steps).enumerate() {
+        if step == DirStep::Create {
+            // Fails if anything appeared there since the check.
+            create_dir_protected(c, (i == 0).then_some(LOG_DIR_SDDL))?;
+        }
+    }
+    Ok(comps[1].clone())
 }
 
 #[cfg(not(windows))]
-fn default_log_dir() -> Option<PathBuf> {
-    None
+fn prepare_default_log_dir() -> std::io::Result<PathBuf> {
+    Err(std::io::Error::other("no log directory on this platform"))
 }
 
 /// Appends `entry`; any failure is reported on stderr and otherwise ignored.
 pub fn append_log(entry: &LogEntry) {
     let line = format_line(entry, SystemTime::now());
-    let res = std::panic::catch_unwind(|| match log_dir() {
-        Some(dir) => append_to(&dir, &line),
-        None => Err(std::io::Error::other("no log directory")),
-    });
+    let res = std::panic::catch_unwind(|| append_to(&prepare_log_dir()?, &line));
     match res {
         Ok(Ok(())) => {}
         Ok(Err(e)) => eprintln!("fix-helper: log not written: {e}"),
@@ -111,8 +182,9 @@ pub fn append_log(entry: &LogEntry) {
     }
 }
 
+/// Appends to `<dir>\fix.log` (rotating at 1 MB). `dir` must already exist
+/// and be trusted; it is never created here.
 pub fn append_to(dir: &Path, line: &str) -> std::io::Result<()> {
-    std::fs::create_dir_all(dir)?;
     let path = dir.join("fix.log");
     if let Ok(md) = std::fs::symlink_metadata(&path) {
         if md.is_file() && md.len() >= MAX_LOG_BYTES {
@@ -132,6 +204,87 @@ pub fn append_to(dir: &Path, line: &str) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    fn comps() -> Vec<PathBuf> {
+        vec![
+            PathBuf::from(r"C:\ProgramData\SaglikDenetimi"),
+            PathBuf::from(r"C:\ProgramData\SaglikDenetimi\logs"),
+        ]
+    }
+
+    /// Inspector answering from a fixed table (outer, inner).
+    fn table(outer: DirNode, inner: DirNode) -> impl Fn(&Path) -> DirNode {
+        move |p: &Path| {
+            if p.ends_with("logs") {
+                inner
+            } else {
+                outer
+            }
+        }
+    }
+
+    const TRUSTED: DirNode = DirNode::Dir {
+        trusted_owner: true,
+    };
+    const FOREIGN: DirNode = DirNode::Dir {
+        trusted_owner: false,
+    };
+
+    #[test]
+    fn trusted_existing_dirs_are_used() {
+        assert_eq!(
+            plan_dirs(&comps(), table(TRUSTED, TRUSTED), false),
+            Some(vec![DirStep::Use, DirStep::Use])
+        );
+    }
+
+    #[test]
+    fn reparse_points_mean_no_logging() {
+        for (o, i) in [(DirNode::Reparse, TRUSTED), (TRUSTED, DirNode::Reparse)] {
+            assert_eq!(plan_dirs(&comps(), table(o, i), true), None);
+        }
+    }
+
+    #[test]
+    fn foreign_owner_or_non_directory_means_no_logging() {
+        for (o, i) in [
+            (FOREIGN, TRUSTED),
+            (TRUSTED, FOREIGN),
+            (DirNode::NotDir, TRUSTED),
+            (TRUSTED, DirNode::NotDir),
+        ] {
+            assert_eq!(plan_dirs(&comps(), table(o, i), true), None, "{o:?} {i:?}");
+        }
+    }
+
+    #[test]
+    fn missing_dirs_are_created_only_when_allowed() {
+        let missing = table(DirNode::Missing, DirNode::Missing);
+        assert_eq!(
+            plan_dirs(&comps(), &missing, true),
+            Some(vec![DirStep::Create, DirStep::Create])
+        );
+        assert_eq!(plan_dirs(&comps(), &missing, false), None);
+        assert_eq!(
+            plan_dirs(&comps(), table(TRUSTED, DirNode::Missing), true),
+            Some(vec![DirStep::Use, DirStep::Create])
+        );
+    }
+
+    #[test]
+    fn a_created_parent_is_not_inspected_again() {
+        // Once the outer dir is created by us, the inner one is new too.
+        let calls = std::cell::Cell::new(0);
+        let inspect = |_: &Path| {
+            calls.set(calls.get() + 1);
+            DirNode::Missing
+        };
+        assert_eq!(
+            plan_dirs(&comps(), inspect, true),
+            Some(vec![DirStep::Create, DirStep::Create])
+        );
+        assert_eq!(calls.get(), 1);
+    }
 
     #[test]
     fn timestamps_are_utc_iso8601() {
@@ -179,6 +332,7 @@ mod tests {
     fn log_rotates_at_one_megabyte() {
         let dir = std::env::temp_dir().join(format!("fix-helper-rot-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
         append_to(&dir, "first\n").unwrap();
         std::fs::write(dir.join("fix.log"), vec![b'x'; MAX_LOG_BYTES as usize]).unwrap();
         append_to(&dir, "new\n").unwrap();
