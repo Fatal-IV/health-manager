@@ -260,6 +260,7 @@ mod tests {
 
     /// Exhaustive, no wildcard: adding a variant breaks this match, forcing
     /// `expected_variants` below to be updated too.
+    #[allow(clippy::needless_match)] // the exhaustive match is the point
     fn witness(f: FixId) -> FixId {
         match f {
             FixId::CleanTemp => FixId::CleanTemp,
