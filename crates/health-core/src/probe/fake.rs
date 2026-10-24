@@ -1,4 +1,6 @@
-use super::{DiskInfo, ProbeError, ProcInfo, StartupItem, SystemProbe};
+use super::{DiskInfo, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe};
+use std::collections::BTreeMap;
+use std::time::SystemTime;
 
 /// Configurable probe for tests, with error injection.
 #[derive(Debug, Default, Clone)]
@@ -20,6 +22,15 @@ pub struct FakeProbe {
     pub processes_error: Option<ProbeError>,
     pub startup_items: Vec<StartupItem>,
     pub startup_error: Option<ProbeError>,
+    pub pending_updates: u32,
+    pub pending_updates_error: Option<ProbeError>,
+    /// Per service name; an unlisted service is `Missing`.
+    pub services: BTreeMap<String, ServiceState>,
+    pub services_error: Option<ProbeError>,
+    pub last_update: Option<SystemTime>,
+    pub last_update_error: Option<ProbeError>,
+    /// Fixed clock; `None` uses the real time.
+    pub now: Option<SystemTime>,
 }
 
 fn pick<T: Clone>(err: &Option<ProbeError>, v: T) -> Result<T, ProbeError> {
@@ -56,5 +67,23 @@ impl SystemProbe for FakeProbe {
     }
     fn startup_items(&self) -> Result<Vec<StartupItem>, ProbeError> {
         pick(&self.startup_error, self.startup_items.clone())
+    }
+    fn pending_updates(&self) -> Result<u32, ProbeError> {
+        pick(&self.pending_updates_error, self.pending_updates)
+    }
+    fn service_state(&self, name: &str) -> Result<ServiceState, ProbeError> {
+        pick(
+            &self.services_error,
+            self.services
+                .get(name)
+                .copied()
+                .unwrap_or(ServiceState::Missing),
+        )
+    }
+    fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
+        pick(&self.last_update_error, self.last_update)
+    }
+    fn now(&self) -> SystemTime {
+        self.now.unwrap_or_else(SystemTime::now)
     }
 }

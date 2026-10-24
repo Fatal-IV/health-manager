@@ -1,3 +1,4 @@
+use std::time::SystemTime;
 use thiserror::Error;
 
 #[cfg(any(test, feature = "testing"))]
@@ -46,6 +47,14 @@ pub struct StartupItem {
     pub impact: Impact,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServiceState {
+    Running,
+    Stopped,
+    Disabled,
+    Missing,
+}
+
 /// Abstraction over the host system; later tasks add methods here.
 pub trait SystemProbe: Send + Sync {
     fn disks(&self) -> Result<Vec<DiskInfo>, ProbeError>;
@@ -62,4 +71,15 @@ pub trait SystemProbe: Send + Sync {
     /// The `n` heaviest processes, busiest first.
     fn top_processes(&self, n: usize) -> Result<Vec<ProcInfo>, ProbeError>;
     fn startup_items(&self) -> Result<Vec<StartupItem>, ProbeError>;
+    /// Number of pending (not installed, not hidden) Windows updates, from the
+    /// local cache only. `Err` when it cannot be determined.
+    fn pending_updates(&self) -> Result<u32, ProbeError>;
+    /// State of a Windows service, read from the Service Control Manager.
+    fn service_state(&self, name: &str) -> Result<ServiceState, ProbeError>;
+    /// Time of the last successful Windows update install; `None` = never/unknown.
+    fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError>;
+    /// Current time; a method so tests do not depend on the real clock.
+    fn now(&self) -> SystemTime {
+        SystemTime::now()
+    }
 }

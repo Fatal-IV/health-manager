@@ -27,6 +27,24 @@
         "why": "Bilgisayar açılırken {{count}} program kendiliğinden başlıyor. Bu, açılışı yavaşlatır. Gerek duymadıklarınızın otomatik başlamasını kapatabilirsiniz."
       }
     },
+    "update": {
+      "pending": {
+        "title": "{{count}} güncelleme yüklenmeyi bekliyor",
+        "why": "Windows'un indirdiği ama henüz kurulmamış güncellemeler var. Güncellemeler güvenlik açıklarını kapatır ve hataları giderir; bilgisayarı yeniden başlatıp kurmak iyi olur."
+      },
+      "service": {
+        "title": "Windows güncelleme hizmeti çalışamıyor",
+        "why": "Güncellemeleri getiren \"{{service}}\" hizmeti kapatılmış veya bulunamıyor. Bu yüzden bilgisayar yeni güncellemeleri alamaz ve güvenlik açıkları açık kalır. Güncelleme bileşenlerini sıfırlayarak sorunu giderebiliriz."
+      },
+      "last_success": {
+        "title": "Bilgisayar {{days}} gündür güncellenmedi",
+        "why": "Son başarılı Windows güncellemesinin üzerinden {{days}} gün geçti. Uzun süre güncellenmeyen bilgisayar saldırılara ve hatalara açık kalır. Windows Update'ten güncellemeleri kontrol edin."
+      },
+      "never_updated": {
+        "title": "Güncelleme geçmişi bulunamadı",
+        "why": "Bu bilgisayarda başarılı bir Windows güncellemesi kaydı görünmüyor. Güncellemeler olmadan bilgisayar güvenlik açıklarına açık kalabilir. Windows Update'ten güncellemeleri kontrol edin."
+      }
+    },
     "storage": {
       "disk_full": {
         "title": "{{drive}} sürücüsünde boş yer azalıyor",
