@@ -6,6 +6,14 @@
         "title": "Bellek (RAM) neredeyse dolu",
         "why": "Belleğin %{{percent}} kadarı kullanılıyor ({{used_gb}} GB / {{total_gb}} GB). Bellek dolunca bilgisayar yavaşlar ve donabilir. Kullanmadığınız programları kapatmak yardımcı olur."
       },
+      "ram_unknown": {
+        "title": "Bellek durumu okunamadı",
+        "why": "Bilgisayarın belleğinin ne kadar dolu olduğu şu an öğrenilemedi. Bu yüzden bellek için bir yorum yapamıyoruz. Denetimi daha sonra yeniden çalıştırabilirsiniz."
+      },
+      "cpu_unknown": {
+        "title": "İşlemci durumu okunamadı",
+        "why": "İşlemcinin ne kadar yoğun çalıştığı şu an öğrenilemedi. Bu yüzden işlemci için bir yorum yapamıyoruz. Denetimi daha sonra yeniden çalıştırabilirsiniz."
+      },
       "cpu_high": {
         "title": "İşlemci şu an çok yoğun çalışıyor",
         "why": "İşlemci %{{percent}} oranında meşgul. Kısa süreli olabilir, ancak sürekli böyleyse bilgisayar yavaşlar ve ısınır. Arka planda çalışan programları kontrol edin."

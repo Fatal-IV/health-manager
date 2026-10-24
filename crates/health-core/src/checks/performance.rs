@@ -58,6 +58,19 @@ fn ram_issue(p: &dyn SystemProbe) -> Result<Option<Issue>, ProbeError> {
     }))
 }
 
+fn unknown_issue(what: &str, err: &ProbeError) -> Issue {
+    Issue {
+        id: format!("performance.{what}_unknown"),
+        category: Category::Performance,
+        status: Status::Unknown,
+        title_key: format!("issue.performance.{what}_unknown.title"),
+        why_key: format!("issue.performance.{what}_unknown.why"),
+        evidence: err.to_string(),
+        params: BTreeMap::new(),
+        fix: None,
+    }
+}
+
 fn cpu_issue(p: &dyn SystemProbe) -> Result<Option<Issue>, ProbeError> {
     let cpu = p.cpu_percent()?;
     if cpu < CPU_WARNING_PCT {
@@ -94,8 +107,9 @@ impl Check for CpuRamCheck {
         match (ram, cpu) {
             (Err(e), Err(_)) => return Err(e),
             (r, c) => {
-                issues.extend(r.ok().flatten());
-                issues.extend(c.ok().flatten());
+                // A failed sub-check becomes an Unknown issue, never a silent pass.
+                issues.extend(r.unwrap_or_else(|e| Some(unknown_issue("ram", &e))));
+                issues.extend(c.unwrap_or_else(|e| Some(unknown_issue("cpu", &e))));
             }
         }
         Ok(issues)
@@ -240,8 +254,11 @@ mod tests {
 
     #[test]
     fn zero_total_ram_is_unknown_not_panic() {
-        // total == 0: no panic; RAM yields no issue. Unknown only when CPU also fails.
-        assert!(CpuRamCheck.scan(&FakeProbe::default()).unwrap().is_empty());
+        // total == 0: RAM is unreadable -> Unknown issue, no panic.
+        let issues = CpuRamCheck.scan(&FakeProbe::default()).unwrap();
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "performance.ram_unknown");
+        assert_eq!(issues[0].status, Status::Unknown);
         let p = FakeProbe {
             cpu_error: Some(ProbeError::Other("x".into())),
             ..Default::default()
@@ -338,8 +355,14 @@ mod tests {
             ..Default::default()
         };
         let issues = CpuRamCheck.scan(&p).unwrap();
-        assert_eq!(issues.len(), 1);
-        assert_eq!(issues[0].id, "performance.cpu_high");
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().any(|i| i.id == "performance.cpu_high"));
+        let u = issues
+            .iter()
+            .find(|i| i.id == "performance.ram_unknown")
+            .unwrap();
+        assert_eq!(u.status, Status::Unknown);
+        assert!(u.evidence.contains('x'));
     }
 
     #[test]
@@ -347,9 +370,42 @@ mod tests {
         let mut p = ram(95);
         p.cpu_error = Some(ProbeError::Other("x".into()));
         let issues = CpuRamCheck.scan(&p).unwrap();
-        assert_eq!(issues[0].status, Status::Critical);
+        assert_eq!(issues.len(), 2);
+        assert!(issues
+            .iter()
+            .any(|i| i.id == "performance.ram_high" && i.status == Status::Critical));
+        assert!(issues
+            .iter()
+            .any(|i| i.id == "performance.cpu_unknown" && i.status == Status::Unknown));
         p.ram_error = Some(ProbeError::Other("y".into()));
         assert!(CpuRamCheck.scan(&p).is_err());
+    }
+
+    #[test]
+    fn unknown_issues_have_no_fix() {
+        let p = FakeProbe {
+            cpu_error: Some(ProbeError::Other("x".into())),
+            ..Default::default()
+        };
+        let issues = CpuRamCheck.scan(&p);
+        // both fail here -> Err; use single failures instead
+        assert!(issues.is_err());
+        for p in [
+            FakeProbe {
+                ram_error: Some(ProbeError::Other("x".into())),
+                ..Default::default()
+            },
+            FakeProbe {
+                cpu_error: Some(ProbeError::Other("x".into())),
+                ram_total: GIB,
+                ..Default::default()
+            },
+        ] {
+            let issues = CpuRamCheck.scan(&p).unwrap();
+            assert_eq!(issues.len(), 1);
+            assert_eq!(issues[0].status, Status::Unknown);
+            assert!(issues[0].fix.is_none());
+        }
     }
 
     #[test]
