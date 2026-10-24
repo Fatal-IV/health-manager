@@ -12,7 +12,7 @@ use windows::Win32::Devices::DeviceAndDriverInstallation::{
     CM_Get_DevNode_Registry_PropertyW, CM_Get_DevNode_Status, CM_Get_Device_ID_ListW,
     CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_DEVNODE_STATUS_FLAGS, CM_DRP_DEVICEDESC,
     CM_DRP_FRIENDLYNAME, CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CM_PROB,
-    CR_SUCCESS,
+    CR_BUFFER_SMALL, CR_SUCCESS,
 };
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Foundation::{
@@ -222,10 +222,27 @@ fn cm_problem_devices() -> Result<Vec<DeviceProblem>, ProbeError> {
     if cr != CR_SUCCESS {
         return Err(cm_err("device id list size", cr.0));
     }
-    let mut buf = vec![0u16; len as usize];
-    let cr =
-        unsafe { CM_Get_Device_ID_ListW(PCWSTR::null(), &mut buf, CM_GETIDLIST_FILTER_PRESENT) };
-    if cr != CR_SUCCESS {
+    // The list can grow between the size query and the read: retry once.
+    let mut buf;
+    let mut attempt = 0;
+    loop {
+        buf = vec![0u16; len as usize];
+        let cr = unsafe {
+            CM_Get_Device_ID_ListW(PCWSTR::null(), &mut buf, CM_GETIDLIST_FILTER_PRESENT)
+        };
+        if cr == CR_SUCCESS {
+            break;
+        }
+        if cr == CR_BUFFER_SMALL && attempt == 0 {
+            attempt += 1;
+            let cr = unsafe {
+                CM_Get_Device_ID_List_SizeW(&mut len, PCWSTR::null(), CM_GETIDLIST_FILTER_PRESENT)
+            };
+            if cr != CR_SUCCESS {
+                return Err(cm_err("device id list size", cr.0));
+            }
+            continue;
+        }
         return Err(cm_err("device id list", cr.0));
     }
     let mut out = Vec::new();
@@ -302,9 +319,21 @@ fn parse_boot_time_secs(xml: &str) -> Option<u32> {
     Some((ms / 1000).min(u32::MAX as u64) as u32)
 }
 
+/// Maps a failed `EvtQuery` Win32 error code. Access denied (5: the Operational
+/// log is not readable without administrator rights) and channel-not-found
+/// (15007) both mean "no readable boot event" -> `Ok(None)` (shown as Unknown,
+/// never as healthy). Everything else is a real failure.
+fn map_evt_error(code: u32) -> Result<Option<u32>, ProbeError> {
+    const ERROR_ACCESS_DENIED: u32 = 5;
+    const ERROR_EVT_CHANNEL_NOT_FOUND: u32 = 15007;
+    match code {
+        ERROR_ACCESS_DENIED | ERROR_EVT_CHANNEL_NOT_FOUND => Ok(None),
+        c => Err(ProbeError::Unavailable(format!("event log error {c}"))),
+    }
+}
+
 /// Newest boot duration (Event ID 100) in seconds; `None` when there is none.
 fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
-    const ERROR_EVT_CHANNEL_NOT_FOUND: u32 = 15007;
     const ERROR_NO_MORE_ITEMS: u32 = 259;
     let win32 = |e: &windows::core::Error| e.code().0 as u32 & 0xFFFF;
     let channel = HSTRING::from("Microsoft-Windows-Diagnostics-Performance/Operational");
@@ -318,8 +347,7 @@ fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
         )
     } {
         Ok(h) => EvtGuard(h),
-        Err(e) if win32(&e) == ERROR_EVT_CHANNEL_NOT_FOUND => return Ok(None),
-        Err(e) => return Err(unavailable(e)),
+        Err(e) => return map_evt_error(win32(&e)),
     };
     let mut events = [0isize; 1];
     let mut returned = 0u32;
@@ -438,8 +466,14 @@ fn run_exit_code(program: &Path, args: &[&str], timeout: Duration) -> Result<i32
 }
 
 /// Interprets SFC (`/verifyonly`) and DISM (`/ScanHealth`) exit codes; localized
-/// output is never parsed. SFC 1 = violations found. SFC 0 with DISM 0 = clean.
-/// Anything else cannot be trusted and is an error rather than "clean".
+/// output is never parsed.
+/// - SFC 1 = corruption found. SFC exit 1 can also mean the scan could not run
+///   (pending repair/reboot); that rare false-Critical is accepted because
+///   parsing localized output is forbidden.
+/// - Clean = SFC found no integrity violations and DISM ran without failing;
+///   DISM exit 0 does not prove the component store is healthy (`/ScanHealth`
+///   exits 0 even for a repairable store).
+/// - Anything else cannot be trusted and is an error, never "clean".
 fn interpret_integrity(sfc: i32, dism: i32) -> Result<IntegrityResult, ProbeError> {
     match (sfc, dism) {
         (1, _) => Ok(IntegrityResult::CorruptionFound),
@@ -448,6 +482,19 @@ fn interpret_integrity(sfc: i32, dism: i32) -> Result<IntegrityResult, ProbeErro
             "integrity scan inconclusive (sfc={sfc}, dism={dism})"
         ))),
     }
+}
+
+/// Runs SFC, then DISM only when SFC did not already find corruption (DISM takes
+/// minutes and its code is ignored in that case).
+fn run_integrity(
+    sfc: impl FnOnce() -> Result<i32, ProbeError>,
+    dism: impl FnOnce() -> Result<i32, ProbeError>,
+) -> Result<IntegrityResult, ProbeError> {
+    let sfc = sfc()?;
+    if sfc == 1 {
+        return Ok(IntegrityResult::CorruptionFound);
+    }
+    interpret_integrity(sfc, dism()?)
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -823,13 +870,16 @@ impl SystemProbe for WindowsProbe {
             return Err(ProbeError::Unavailable("needs administrator".into()));
         }
         let sys = system32_dir();
-        let sfc = run_exit_code(&sys.join("sfc.exe"), &["/verifyonly"], INTEGRITY_TIMEOUT)?;
-        let dism = run_exit_code(
-            &sys.join("dism.exe"),
-            &["/Online", "/Cleanup-Image", "/ScanHealth"],
-            INTEGRITY_TIMEOUT,
-        )?;
-        interpret_integrity(sfc, dism)
+        run_integrity(
+            || run_exit_code(&sys.join("sfc.exe"), &["/verifyonly"], INTEGRITY_TIMEOUT),
+            || {
+                run_exit_code(
+                    &sys.join("dism.exe"),
+                    &["/Online", "/Cleanup-Image", "/ScanHealth"],
+                    INTEGRITY_TIMEOUT,
+                )
+            },
+        )
     }
 }
 
@@ -1043,6 +1093,32 @@ mod tests {
         assert!(!is_reportable_problem(CM_PROB_PHANTOM));
         assert!(is_reportable_problem(28)); // driver not installed
         assert!(is_reportable_problem(10)); // cannot start
+    }
+
+    #[test]
+    fn evt_error_mapping() {
+        assert_eq!(map_evt_error(5), Ok(None)); // access denied
+        assert_eq!(map_evt_error(15007), Ok(None)); // channel not found
+        assert!(map_evt_error(1223).is_err());
+        assert!(map_evt_error(0).is_err());
+    }
+
+    #[test]
+    fn sfc_corruption_skips_dism() {
+        let calls = std::cell::Cell::new(0);
+        let dism = || {
+            calls.set(calls.get() + 1);
+            Ok(0)
+        };
+        assert_eq!(
+            run_integrity(|| Ok(1), dism),
+            Ok(IntegrityResult::CorruptionFound)
+        );
+        assert_eq!(calls.get(), 0);
+        assert_eq!(run_integrity(|| Ok(0), dism), Ok(IntegrityResult::Clean));
+        assert_eq!(calls.get(), 1);
+        assert!(run_integrity(|| Err(ProbeError::Other("x".into())), dism).is_err());
+        assert_eq!(calls.get(), 1);
     }
 
     #[test]

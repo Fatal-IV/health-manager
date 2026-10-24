@@ -100,7 +100,7 @@
       },
       "boot_unknown": {
         "title": "Açılış süresi okunamadı",
-        "why": "Bilgisayarın ne kadar sürede açıldığına dair kayıt bulamadık. Bu yüzden açılış hızı hakkında bir şey söyleyemiyoruz."
+        "why": "Açılış süresi bu bilgisayarda yönetici izni olmadan okunamıyor ya da kaydı yok. Bu yüzden açılış hızı hakkında bir şey söyleyemiyoruz."
       },
       "integrity": {
         "title": "Windows sistem dosyalarında bozulma bulundu",
