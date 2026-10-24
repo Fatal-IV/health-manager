@@ -74,6 +74,21 @@ pub enum UacLevel {
     Enabled,
 }
 
+/// A device with a non-zero Configuration Manager problem code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceProblem {
+    pub name: String,
+    /// Configuration Manager problem code (`CM_PROB_*`), never 0.
+    pub code: u32,
+}
+
+/// Outcome of a completed SFC/DISM integrity scan.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IntegrityResult {
+    Clean,
+    CorruptionFound,
+}
+
 /// Abstraction over the host system; later tasks add methods here.
 pub trait SystemProbe: Send + Sync {
     fn disks(&self) -> Result<Vec<DiskInfo>, ProbeError>;
@@ -102,6 +117,13 @@ pub trait SystemProbe: Send + Sync {
     /// `false` if any firewall profile (standard, public, domain) is disabled.
     fn firewall_enabled(&self) -> Result<bool, ProbeError>;
     fn uac_level(&self) -> Result<UacLevel, ProbeError>;
+    /// Present devices with a driver/hardware problem code. Devices disabled on
+    /// purpose (CM_PROB_DISABLED) and phantom devices are not reported.
+    fn problem_devices(&self) -> Result<Vec<DeviceProblem>, ProbeError>;
+    /// Duration of the latest boot in seconds (Event Log); `None` when no such event.
+    fn boot_seconds(&self) -> Result<Option<u32>, ProbeError>;
+    /// SFC + DISM verification (minutes; deep scan only). Needs administrator.
+    fn integrity_scan(&self) -> Result<IntegrityResult, ProbeError>;
     /// Current time; a method so tests do not depend on the real clock.
     fn now(&self) -> SystemTime {
         SystemTime::now()

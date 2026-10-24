@@ -1,20 +1,32 @@
 //! Real Windows implementation of [`SystemProbe`].
 
 use super::{
-    DefenderState, DiskInfo, Impact, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe,
-    UacLevel,
+    DefenderState, DeviceProblem, DiskInfo, Impact, IntegrityResult, ProbeError, ProcInfo,
+    ServiceState, StartupItem, SystemProbe, UacLevel,
 };
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use windows::core::{HSTRING, PCWSTR};
+use windows::Win32::Devices::DeviceAndDriverInstallation::{
+    CM_Get_DevNode_Registry_PropertyW, CM_Get_DevNode_Status, CM_Get_Device_ID_ListW,
+    CM_Get_Device_ID_List_SizeW, CM_Locate_DevNodeW, CM_DEVNODE_STATUS_FLAGS, CM_DRP_DEVICEDESC,
+    CM_DRP_FRIENDLYNAME, CM_GETIDLIST_FILTER_PRESENT, CM_LOCATE_DEVNODE_NORMAL, CM_PROB,
+    CR_SUCCESS,
+};
+use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Foundation::{
     ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS,
     VARIANT_FALSE,
 };
+use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
+};
+use windows::Win32::System::EventLog::{
+    EvtClose, EvtNext, EvtQuery, EvtQueryChannelPath, EvtQueryReverseDirection, EvtRender,
+    EvtRenderEventXml, EVT_HANDLE,
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumValueW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
@@ -25,6 +37,7 @@ use windows::Win32::System::Services::{
     QUERY_SERVICE_CONFIGW, SC_HANDLE, SC_MANAGER_CONNECT, SERVICE_DISABLED, SERVICE_QUERY_CONFIG,
     SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_STATUS,
 };
+use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 use windows::Win32::System::UpdateAgent::{orcSucceeded, IUpdateSession, UpdateSession};
 use windows::Win32::UI::Shell::{SHQueryRecycleBinW, SHQUERYRBINFO};
 
@@ -186,6 +199,255 @@ fn third_party_av_active() -> Result<bool, ProbeError> {
     Ok(rows.iter().any(|r| {
         !r.instance_guid.eq_ignore_ascii_case(DEFENDER_GUID) && av_state_on(r.product_state)
     }))
+}
+
+const CM_PROB_DISABLED: u32 = 22;
+const CM_PROB_PHANTOM: u32 = 45;
+const INTEGRITY_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+
+/// Whether a device's problem code means something the user should look at.
+/// 0 = fine; CM_PROB_DISABLED (22) = the user switched the device off on
+/// purpose; CM_PROB_PHANTOM (45) = not present. Neither is reported.
+fn is_reportable_problem(code: u32) -> bool {
+    code != 0 && code != CM_PROB_DISABLED && code != CM_PROB_PHANTOM
+}
+
+/// Present devices with a reportable Configuration Manager problem code.
+fn cm_problem_devices() -> Result<Vec<DeviceProblem>, ProbeError> {
+    let cm_err = |what: &str, cr: u32| ProbeError::Unavailable(format!("{what}: CR {cr:#x}"));
+    let mut len = 0u32;
+    let cr = unsafe {
+        CM_Get_Device_ID_List_SizeW(&mut len, PCWSTR::null(), CM_GETIDLIST_FILTER_PRESENT)
+    };
+    if cr != CR_SUCCESS {
+        return Err(cm_err("device id list size", cr.0));
+    }
+    let mut buf = vec![0u16; len as usize];
+    let cr =
+        unsafe { CM_Get_Device_ID_ListW(PCWSTR::null(), &mut buf, CM_GETIDLIST_FILTER_PRESENT) };
+    if cr != CR_SUCCESS {
+        return Err(cm_err("device id list", cr.0));
+    }
+    let mut out = Vec::new();
+    // Multi-string: ids separated by NUL, ending with an empty string.
+    for id in buf.split(|&c| c == 0).filter(|s| !s.is_empty()) {
+        let mut wide: Vec<u16> = id.to_vec();
+        wide.push(0);
+        let mut inst = 0u32;
+        let cr = unsafe {
+            CM_Locate_DevNodeW(&mut inst, PCWSTR(wide.as_ptr()), CM_LOCATE_DEVNODE_NORMAL)
+        };
+        if cr != CR_SUCCESS {
+            continue; // the device vanished while enumerating
+        }
+        let mut status = CM_DEVNODE_STATUS_FLAGS(0);
+        let mut problem = CM_PROB(0);
+        let cr = unsafe { CM_Get_DevNode_Status(&mut status, &mut problem, inst, 0) };
+        if cr != CR_SUCCESS || !is_reportable_problem(problem.0) {
+            continue;
+        }
+        let name = cm_device_name(inst).unwrap_or_else(|| String::from_utf16_lossy(id));
+        out.push(DeviceProblem {
+            name,
+            code: problem.0,
+        });
+    }
+    Ok(out)
+}
+
+/// Friendly name, else device description, of a devnode.
+fn cm_device_name(inst: u32) -> Option<String> {
+    for prop in [CM_DRP_FRIENDLYNAME, CM_DRP_DEVICEDESC] {
+        let mut buf = vec![0u16; 512];
+        let mut bytes = (buf.len() * 2) as u32;
+        let cr = unsafe {
+            CM_Get_DevNode_Registry_PropertyW(
+                inst,
+                prop,
+                None,
+                Some(buf.as_mut_ptr() as *mut _),
+                &mut bytes,
+                0,
+            )
+        };
+        if cr == CR_SUCCESS {
+            let n = (bytes as usize / 2).min(buf.len());
+            let s = String::from_utf16_lossy(&buf[..n]);
+            let s = s.trim_end_matches('\0').trim().to_string();
+            if !s.is_empty() {
+                return Some(s);
+            }
+        }
+    }
+    None
+}
+
+/// Closes an event log handle on drop.
+struct EvtGuard(EVT_HANDLE);
+impl Drop for EvtGuard {
+    fn drop(&mut self) {
+        let _ = unsafe { EvtClose(self.0) };
+    }
+}
+
+/// `BootTime` (ms) from the XML of a Diagnostics-Performance event 100, as seconds.
+fn parse_boot_time_secs(xml: &str) -> Option<u32> {
+    let i = xml
+        .find("Name='BootTime'")
+        .or_else(|| xml.find("Name=\"BootTime\""))?;
+    let rest = &xml[i..];
+    let start = rest.find('>')? + 1;
+    let end = rest[start..].find('<')? + start;
+    let ms: u64 = rest[start..end].trim().parse().ok()?;
+    Some((ms / 1000).min(u32::MAX as u64) as u32)
+}
+
+/// Newest boot duration (Event ID 100) in seconds; `None` when there is none.
+fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
+    const ERROR_EVT_CHANNEL_NOT_FOUND: u32 = 15007;
+    const ERROR_NO_MORE_ITEMS: u32 = 259;
+    let win32 = |e: &windows::core::Error| e.code().0 as u32 & 0xFFFF;
+    let channel = HSTRING::from("Microsoft-Windows-Diagnostics-Performance/Operational");
+    let query = HSTRING::from("*[System[(EventID=100)]]");
+    let rs = match unsafe {
+        EvtQuery(
+            None,
+            PCWSTR(channel.as_ptr()),
+            PCWSTR(query.as_ptr()),
+            EvtQueryChannelPath.0 | EvtQueryReverseDirection.0,
+        )
+    } {
+        Ok(h) => EvtGuard(h),
+        Err(e) if win32(&e) == ERROR_EVT_CHANNEL_NOT_FOUND => return Ok(None),
+        Err(e) => return Err(unavailable(e)),
+    };
+    let mut events = [0isize; 1];
+    let mut returned = 0u32;
+    if let Err(e) = unsafe { EvtNext(rs.0, &mut events, 5000, 0, &mut returned) } {
+        if win32(&e) == ERROR_NO_MORE_ITEMS {
+            return Ok(None);
+        }
+        return Err(unavailable(e));
+    }
+    if returned == 0 {
+        return Ok(None);
+    }
+    let ev = EvtGuard(EVT_HANDLE(events[0]));
+    let (mut used, mut props) = (0u32, 0u32);
+    // First call reports the needed buffer size (bytes) via ERROR_INSUFFICIENT_BUFFER.
+    let _ = unsafe {
+        EvtRender(
+            None,
+            ev.0,
+            EvtRenderEventXml.0,
+            0,
+            None,
+            &mut used,
+            &mut props,
+        )
+    };
+    if used == 0 {
+        return Err(ProbeError::Unavailable("event render size".into()));
+    }
+    let mut buf = vec![0u16; (used as usize).div_ceil(2)];
+    unsafe {
+        EvtRender(
+            None,
+            ev.0,
+            EvtRenderEventXml.0,
+            (buf.len() * 2) as u32,
+            Some(buf.as_mut_ptr() as *mut _),
+            &mut used,
+            &mut props,
+        )
+    }
+    .map_err(unavailable)?;
+    let xml = String::from_utf16_lossy(&buf);
+    Ok(parse_boot_time_secs(xml.trim_end_matches('\0')))
+}
+
+/// True when the current process token is elevated (administrator).
+fn is_elevated() -> Result<bool, ProbeError> {
+    struct Tok(HANDLE);
+    impl Drop for Tok {
+        fn drop(&mut self) {
+            let _ = unsafe { CloseHandle(self.0) };
+        }
+    }
+    let mut h = HANDLE::default();
+    unsafe { OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut h) }.map_err(unavailable)?;
+    let tok = Tok(h);
+    let mut elev = TOKEN_ELEVATION::default();
+    let mut ret = 0u32;
+    unsafe {
+        GetTokenInformation(
+            tok.0,
+            TokenElevation,
+            Some(&mut elev as *mut _ as *mut _),
+            std::mem::size_of::<TOKEN_ELEVATION>() as u32,
+            &mut ret,
+        )
+    }
+    .map_err(unavailable)?;
+    Ok(elev.TokenIsElevated != 0)
+}
+
+fn system32_dir() -> PathBuf {
+    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+    PathBuf::from(root).join("System32")
+}
+
+/// Runs a program with no window/output and returns its exit code. Kills the
+/// child and returns `Unavailable` when it exceeds `timeout`.
+fn run_exit_code(program: &Path, args: &[&str], timeout: Duration) -> Result<i32, ProbeError> {
+    use std::os::windows::process::CommandExt;
+    use std::process::{Command, Stdio};
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut child = Command::new(program)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+        .map_err(|e| ProbeError::Unavailable(format!("{}: {e}", program.display())))?;
+    let start = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return status
+                    .code()
+                    .ok_or_else(|| ProbeError::Other("process ended without exit code".into()))
+            }
+            Ok(None) if start.elapsed() >= timeout => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(ProbeError::Unavailable(format!(
+                    "{} timed out",
+                    program.display()
+                )));
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(200)),
+            Err(e) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(ProbeError::Other(e.to_string()));
+            }
+        }
+    }
+}
+
+/// Interprets SFC (`/verifyonly`) and DISM (`/ScanHealth`) exit codes; localized
+/// output is never parsed. SFC 1 = violations found. SFC 0 with DISM 0 = clean.
+/// Anything else cannot be trusted and is an error rather than "clean".
+fn interpret_integrity(sfc: i32, dism: i32) -> Result<IntegrityResult, ProbeError> {
+    match (sfc, dism) {
+        (1, _) => Ok(IntegrityResult::CorruptionFound),
+        (0, 0) => Ok(IntegrityResult::Clean),
+        _ => Err(ProbeError::Other(format!(
+            "integrity scan inconclusive (sfc={sfc}, dism={dism})"
+        ))),
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -544,6 +806,31 @@ impl SystemProbe for WindowsProbe {
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
         choose_last_update(registry_last_success(), wua_last_success)
     }
+    fn problem_devices(&self) -> Result<Vec<DeviceProblem>, ProbeError> {
+        cm_problem_devices()
+    }
+
+    fn boot_seconds(&self) -> Result<Option<u32>, ProbeError> {
+        boot_seconds_from_event_log()
+    }
+
+    /// Needs administrator (SFC/DISM refuse to run otherwise). The app starts
+    /// unelevated, so until Tasks 10/11 route the deep integrity scan through the
+    /// elevated helper this returns `Unavailable("needs administrator")` and the
+    /// check shows an error card (never "healthy").
+    fn integrity_scan(&self) -> Result<IntegrityResult, ProbeError> {
+        if !is_elevated()? {
+            return Err(ProbeError::Unavailable("needs administrator".into()));
+        }
+        let sys = system32_dir();
+        let sfc = run_exit_code(&sys.join("sfc.exe"), &["/verifyonly"], INTEGRITY_TIMEOUT)?;
+        let dism = run_exit_code(
+            &sys.join("dism.exe"),
+            &["/Online", "/Cleanup-Image", "/ScanHealth"],
+            INTEGRITY_TIMEOUT,
+        )?;
+        interpret_integrity(sfc, dism)
+    }
 }
 
 /// `LastSuccessTime` ("YYYY-MM-DD HH:MM:SS", UTC) from the Auto Update results.
@@ -747,6 +1034,71 @@ mod tests {
             Ok(_) | Err(ProbeError::Unavailable(_)) => {}
             Err(e) => panic!("unexpected: {e}"),
         }
+    }
+
+    #[test]
+    fn problem_code_filtering() {
+        assert!(!is_reportable_problem(0));
+        assert!(!is_reportable_problem(CM_PROB_DISABLED));
+        assert!(!is_reportable_problem(CM_PROB_PHANTOM));
+        assert!(is_reportable_problem(28)); // driver not installed
+        assert!(is_reportable_problem(10)); // cannot start
+    }
+
+    #[test]
+    fn integrity_exit_code_interpretation() {
+        assert_eq!(interpret_integrity(0, 0), Ok(IntegrityResult::Clean));
+        assert_eq!(
+            interpret_integrity(1, 0),
+            Ok(IntegrityResult::CorruptionFound)
+        );
+        assert_eq!(
+            interpret_integrity(1, 5),
+            Ok(IntegrityResult::CorruptionFound)
+        );
+        assert!(interpret_integrity(0, 87).is_err());
+        assert!(interpret_integrity(2, 0).is_err());
+        assert!(interpret_integrity(-1, -1).is_err());
+    }
+
+    #[test]
+    fn boot_time_xml_parsing() {
+        let xml = "<Event><EventData><Data Name='BootTime'>45678</Data></EventData></Event>";
+        assert_eq!(parse_boot_time_secs(xml), Some(45));
+        let xml = "<Data Name=\"BootTime\">91000</Data>";
+        assert_eq!(parse_boot_time_secs(xml), Some(91));
+        assert_eq!(parse_boot_time_secs("<Event/>"), None);
+        assert_eq!(parse_boot_time_secs("<Data Name='BootTime'>x</Data>"), None);
+    }
+
+    #[test]
+    fn real_probe_system_smoke() {
+        let p = WindowsProbe::new();
+        // integrity_scan is deliberately NOT run: it takes minutes.
+        assert!(is_elevated().is_ok());
+        match p.problem_devices() {
+            Ok(_) | Err(ProbeError::Unavailable(_)) => {}
+            Err(e) => panic!("unexpected: {e}"),
+        }
+        match p.boot_seconds() {
+            Ok(_) | Err(ProbeError::Unavailable(_)) => {}
+            Err(e) => panic!("unexpected: {e}"),
+        }
+    }
+
+    #[test]
+    fn run_exit_code_reports_code_and_kills_on_timeout() {
+        let cmd = system32_dir().join("cmd.exe");
+        assert_eq!(
+            run_exit_code(&cmd, &["/c", "exit 3"], Duration::from_secs(10)),
+            Ok(3)
+        );
+        let slow = run_exit_code(
+            &cmd,
+            &["/c", "ping -n 30 127.0.0.1 >nul"],
+            Duration::from_millis(300),
+        );
+        assert!(matches!(slow, Err(ProbeError::Unavailable(_))));
     }
 
     #[test]

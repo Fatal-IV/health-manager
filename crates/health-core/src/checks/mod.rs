@@ -1,6 +1,7 @@
 pub mod performance;
 pub mod security;
 pub mod storage;
+pub mod system;
 pub mod update;
 
 pub use crate::engine::Check;
@@ -21,5 +22,8 @@ pub fn all_checks() -> Vec<Box<dyn Check>> {
         Box::new(security::DefenderCheck),
         Box::new(security::FirewallCheck),
         Box::new(security::UacCheck),
+        Box::new(system::ProblemDevicesCheck),
+        Box::new(system::BootTimeCheck),
+        Box::new(system::IntegrityCheck),
     ]
 }

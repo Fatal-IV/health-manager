@@ -14,6 +14,10 @@ testing = []
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Security",
+    "Win32_System_EventLog",
+    "Win32_System_Threading",
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
     "Win32_System_Com",

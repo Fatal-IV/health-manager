@@ -1,7 +1,10 @@
 use super::{
-    DefenderState, DiskInfo, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe, UacLevel,
+    DefenderState, DeviceProblem, DiskInfo, IntegrityResult, ProbeError, ProcInfo, ServiceState,
+    StartupItem, SystemProbe, UacLevel,
 };
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 /// Configurable probe for tests, with error injection.
@@ -40,6 +43,16 @@ pub struct FakeProbe {
     /// `None` = `UacLevel::Enabled`.
     pub uac: Option<UacLevel>,
     pub uac_error: Option<ProbeError>,
+    pub problem_devices: Vec<DeviceProblem>,
+    pub problem_devices_error: Option<ProbeError>,
+    /// `None` = no boot event.
+    pub boot_seconds: Option<u32>,
+    pub boot_error: Option<ProbeError>,
+    /// `None` = `IntegrityResult::Clean`.
+    pub integrity: Option<IntegrityResult>,
+    pub integrity_error: Option<ProbeError>,
+    /// Counts `integrity_scan` calls (shared across clones).
+    pub integrity_calls: Arc<AtomicUsize>,
     /// Fixed clock; `None` uses the real time.
     pub now: Option<SystemTime>,
 }
@@ -109,6 +122,19 @@ impl SystemProbe for FakeProbe {
     }
     fn uac_level(&self) -> Result<UacLevel, ProbeError> {
         pick(&self.uac_error, self.uac.unwrap_or(UacLevel::Enabled))
+    }
+    fn problem_devices(&self) -> Result<Vec<DeviceProblem>, ProbeError> {
+        pick(&self.problem_devices_error, self.problem_devices.clone())
+    }
+    fn boot_seconds(&self) -> Result<Option<u32>, ProbeError> {
+        pick(&self.boot_error, self.boot_seconds)
+    }
+    fn integrity_scan(&self) -> Result<IntegrityResult, ProbeError> {
+        self.integrity_calls.fetch_add(1, Ordering::SeqCst);
+        pick(
+            &self.integrity_error,
+            self.integrity.unwrap_or(IntegrityResult::Clean),
+        )
     }
     fn now(&self) -> SystemTime {
         self.now.unwrap_or_else(SystemTime::now)

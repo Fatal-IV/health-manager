@@ -88,6 +88,24 @@
         "title": "Eski güncelleme dosyaları {{size_gb}} GB yer kaplıyor",
         "why": "Windows güncellemelerinden geriye kalan dosyalar gereksiz yer kaplıyor. Temizlemek güncellemelerinizi etkilemez ve disk alanı açar."
       }
+    },
+    "system": {
+      "devices": {
+        "title": "{{count}} donanım sorunlu çalışıyor",
+        "why": "Şu cihazlarda sorun var: {{devices}}. Sürücüsü eksik ya da hatalı olabilir. Windows Update'ten güncellemeleri kontrol edin ya da cihazın üreticisinin sitesinden güncel sürücüyü yükleyin."
+      },
+      "boot": {
+        "title": "Bilgisayar {{seconds}} saniyede açıldı",
+        "why": "Son açılış {{seconds}} saniye sürdü; bu beklenenden uzun. Açılışta çalışan gereksiz programlar bilgisayarı yavaşlatıyor olabilir."
+      },
+      "boot_unknown": {
+        "title": "Açılış süresi okunamadı",
+        "why": "Bilgisayarın ne kadar sürede açıldığına dair kayıt bulamadık. Bu yüzden açılış hızı hakkında bir şey söyleyemiyoruz."
+      },
+      "integrity": {
+        "title": "Windows sistem dosyalarında bozulma bulundu",
+        "why": "Windows'un bazı önemli dosyaları bozulmuş. Bu, beklenmedik hatalara ve donmalara yol açabilir. Dosyaları tek adımda onarabiliriz; işlem birkaç dakika sürebilir."
+      }
     }
   }
 }
