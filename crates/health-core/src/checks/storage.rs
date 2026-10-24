@@ -1,4 +1,5 @@
 use crate::engine::Check;
+use crate::fixes::FixId;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{ProbeError, SystemProbe};
 use std::collections::BTreeMap;
@@ -83,7 +84,7 @@ impl Check for DiskSpaceCheck {
     }
 }
 
-fn size_issue(id: &str, key: &str, bytes: u64, threshold: u64, fix: &str) -> Vec<Issue> {
+fn size_issue(id: &str, key: &str, bytes: u64, threshold: u64, fix: FixId) -> Vec<Issue> {
     if bytes < threshold {
         return Vec::new();
     }
@@ -95,7 +96,7 @@ fn size_issue(id: &str, key: &str, bytes: u64, threshold: u64, fix: &str) -> Vec
         why_key: format!("issue.storage.{key}.why"),
         evidence: gib_text(bytes),
         params: BTreeMap::from([("size_gb".to_string(), gb_param(bytes))]),
-        fix: Some(fix.into()),
+        fix: Some(fix),
     }]
 }
 
@@ -112,7 +113,7 @@ impl Check for TempFilesCheck {
             "temp_files",
             p.temp_bytes()?,
             TEMP_WARN_BYTES,
-            "clean_temp",
+            FixId::CleanTemp,
         ))
     }
 }
@@ -130,7 +131,7 @@ impl Check for RecycleBinCheck {
             "recycle_bin",
             p.recycle_bin_bytes()?,
             RECYCLE_WARN_BYTES,
-            "empty_recycle_bin",
+            FixId::EmptyRecycleBin,
         ))
     }
 }
@@ -148,7 +149,7 @@ impl Check for UpdateLeftoversCheck {
             "update_leftovers",
             p.update_leftovers_bytes()?,
             UPDATE_LEFTOVERS_WARN_BYTES,
-            "clean_update_leftovers",
+            FixId::CleanUpdateLeftovers,
         ))
     }
 }
@@ -268,7 +269,7 @@ mod tests {
         let issues = TempFilesCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Warning);
-        assert_eq!(issues[0].fix.as_deref(), Some("clean_temp"));
+        assert_eq!(issues[0].fix, Some(FixId::CleanTemp));
     }
 
     #[test]
@@ -289,7 +290,7 @@ mod tests {
         let issues = RecycleBinCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Warning);
-        assert_eq!(issues[0].fix.as_deref(), Some("empty_recycle_bin"));
+        assert_eq!(issues[0].fix, Some(FixId::EmptyRecycleBin));
         assert!(RecycleBinCheck
             .scan(&FakeProbe::default())
             .unwrap()
@@ -305,7 +306,7 @@ mod tests {
         let issues = UpdateLeftoversCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Warning);
-        assert_eq!(issues[0].fix.as_deref(), Some("clean_update_leftovers"));
+        assert_eq!(issues[0].fix, Some(FixId::CleanUpdateLeftovers));
         assert!(UpdateLeftoversCheck
             .scan(&FakeProbe::default())
             .unwrap()

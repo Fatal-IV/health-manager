@@ -1,4 +1,5 @@
 use crate::engine::Check;
+use crate::fixes::FixId;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{ProbeError, SystemProbe, UacLevel};
 use std::collections::BTreeMap;
@@ -16,7 +17,7 @@ fn issue(
     status: Status,
     evidence: String,
     params: BTreeMap<String, String>,
-    fix: Option<&str>,
+    fix: Option<FixId>,
 ) -> Issue {
     Issue {
         id: id.into(),
@@ -26,7 +27,7 @@ fn issue(
         why_key: format!("issue.security.{key}.why"),
         evidence,
         params,
-        fix: fix.map(String::from),
+        fix,
     }
 }
 
@@ -75,7 +76,7 @@ impl Check for DefenderCheck {
                 Status::Critical,
                 "Defender real-time protection is off".into(),
                 BTreeMap::new(),
-                Some("enable_defender_realtime"),
+                Some(FixId::EnableDefenderRealtime),
             )]);
         }
         if d.signature_age_days > SIGNATURE_WARN_DAYS {
@@ -109,7 +110,7 @@ impl Check for FirewallCheck {
             Status::Critical,
             "at least one firewall profile is disabled".into(),
             BTreeMap::new(),
-            Some("enable_firewall"),
+            Some(FixId::EnableFirewall),
         )])
     }
 }
@@ -177,7 +178,7 @@ mod tests {
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Critical);
         assert_eq!(i[0].category, Category::Security);
-        assert_eq!(i[0].fix.as_deref(), Some("enable_defender_realtime"));
+        assert_eq!(i[0].fix, Some(FixId::EnableDefenderRealtime));
         assert_eq!(i[0].title_key, "issue.security.defender_realtime.title");
     }
 
@@ -251,7 +252,7 @@ mod tests {
         let i = FirewallCheck.scan(&p).unwrap();
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Critical);
-        assert_eq!(i[0].fix.as_deref(), Some("enable_firewall"));
+        assert_eq!(i[0].fix, Some(FixId::EnableFirewall));
     }
 
     #[test]

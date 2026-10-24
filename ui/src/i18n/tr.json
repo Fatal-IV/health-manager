@@ -107,5 +107,67 @@
         "why": "Windows'un bazı önemli dosyaları bozulmuş. Bu, beklenmedik hatalara ve donmalara yol açabilir. Dosyaları tek adımda onarabiliriz; işlem birkaç dakika sürebilir."
       }
     }
+  },
+  "fix": {
+    "clean_temp": {
+      "summary": "Geçici dosyaları temizle",
+      "change": {
+        "1": "Kullanıcı geçici klasöründeki dosyalar silinecek. Kullanımda olan dosyalara dokunulmaz.",
+        "2": "Silinen dosyalar geri alınamaz. Yapılan her işlem kayda geçirilir."
+      }
+    },
+    "empty_recycle_bin": {
+      "summary": "Geri dönüşüm kutusunu boşalt",
+      "change": {
+        "1": "Geri dönüşüm kutusundaki tüm dosyalar kalıcı olarak silinecek ve geri getirilemeyecek. İşlem kayda geçirilir."
+      }
+    },
+    "clean_update_leftovers": {
+      "summary": "Windows güncelleme artıklarını temizle",
+      "change": {
+        "1": "Windows'un indirdiği ve artık gerek duymadığı eski güncelleme dosyaları silinecek. Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    },
+    "disable_startup_item": {
+      "summary": "Başlangıç programını kapat",
+      "change": {
+        "1": "{{target}} adlı program bilgisayar açılırken artık kendiliğinden başlamayacak.",
+        "2": "Program silinmez; dilediğiniz zaman yeniden açabilirsiniz. İşlem kayda geçirilir."
+      }
+    },
+    "end_process": {
+      "summary": "Çalışan programı kapat",
+      "change": {
+        "1": "Numarası {{target}} olan program hemen kapatılacak.",
+        "2": "Programda kaydedilmemiş çalışmanız varsa kaybolabilir. İşlem geri alınamaz ve kayda geçirilir."
+      }
+    },
+    "reset_windows_update": {
+      "summary": "Windows Update'i sıfırla",
+      "change": {
+        "1": "Windows Update hizmetleri kısa süreliğine durdurulup yeniden başlatılacak.",
+        "2": "Güncelleme önbellek klasörleri silinmez, yedek olarak yeniden adlandırılır (.bak); gerekirse geri alınabilir.",
+        "3": "Bu işlem yönetici izni ister ve kayda geçirilir."
+      }
+    },
+    "enable_defender_realtime": {
+      "summary": "Virüs korumasını aç",
+      "change": {
+        "1": "Windows Defender'ın gerçek zamanlı koruması açılacak. Bu işlem yönetici izni ister, istediğiniz zaman tekrar kapatılabilir ve kayda geçirilir."
+      }
+    },
+    "enable_firewall": {
+      "summary": "Güvenlik duvarını aç",
+      "change": {
+        "1": "Windows güvenlik duvarı tüm ağ türlerinde açılacak. Bu işlem yönetici izni ister, istediğiniz zaman tekrar kapatılabilir ve kayda geçirilir."
+      }
+    },
+    "run_sfc_dism": {
+      "summary": "Windows sistem dosyalarını onar",
+      "change": {
+        "1": "Windows'un kendi onarım araçları çalıştırılıp bozulmuş sistem dosyaları onarılacak. Bu birkaç dakika sürebilir.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    }
   }
 }

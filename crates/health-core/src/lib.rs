@@ -1,5 +1,6 @@
 pub mod checks;
 pub mod engine;
+pub mod fixes;
 pub mod model;
 pub mod probe;
 pub mod scoring;

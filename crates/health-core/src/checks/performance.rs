@@ -1,4 +1,5 @@
 use crate::engine::Check;
+use crate::fixes::FixId;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{Impact, ProbeError, SystemProbe};
 use std::collections::BTreeMap;
@@ -149,7 +150,7 @@ impl Check for TopProcessesCheck {
                     ("ram_gb".to_string(), gb_param(proc.ram_bytes)),
                     ("target".to_string(), proc.pid.to_string()),
                 ]),
-                fix: Some("end_process".into()),
+                fix: Some(FixId::EndProcess),
             });
         }
         Ok(issues)
@@ -188,7 +189,7 @@ impl Check for StartupItemsCheck {
                     serde_json::Value::Array(list).to_string(),
                 ),
             ]),
-            fix: Some("disable_startup_item".into()),
+            fix: Some(FixId::DisableStartupItem),
         }])
     }
 }
@@ -278,7 +279,7 @@ mod tests {
         let issues = StartupItemsCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Warning);
-        assert_eq!(issues[0].fix.as_deref(), Some("disable_startup_item"));
+        assert_eq!(issues[0].fix, Some(FixId::DisableStartupItem));
         assert_eq!(issues[0].params["count"], "11");
         let items: serde_json::Value = serde_json::from_str(&issues[0].params["items"]).unwrap();
         assert_eq!(items.as_array().unwrap().len(), 11);
@@ -329,7 +330,7 @@ mod tests {
         assert!(issues[0].evidence.contains("hog.exe"));
         assert_eq!(issues[0].params["process"], "hog.exe");
         assert_eq!(issues[0].params["target"], "4242");
-        assert_eq!(issues[0].fix.as_deref(), Some("end_process"));
+        assert_eq!(issues[0].fix, Some(FixId::EndProcess));
     }
 
     #[test]
@@ -427,7 +428,7 @@ mod tests {
             ..Default::default()
         };
         let issues = StartupItemsCheck.scan(&p).unwrap();
-        assert_eq!(issues[0].fix.as_deref(), Some("disable_startup_item"));
+        assert_eq!(issues[0].fix, Some(FixId::DisableStartupItem));
     }
 
     #[test]

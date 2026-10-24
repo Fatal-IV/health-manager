@@ -1,4 +1,5 @@
 use crate::engine::Check;
+use crate::fixes::FixId;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{IntegrityResult, ProbeError, SystemProbe};
 use std::collections::BTreeMap;
@@ -19,7 +20,7 @@ fn issue(
     status: Status,
     evidence: String,
     params: BTreeMap<String, String>,
-    fix: Option<&str>,
+    fix: Option<FixId>,
 ) -> Issue {
     Issue {
         id: id.into(),
@@ -29,7 +30,7 @@ fn issue(
         why_key: format!("issue.system.{key}.why"),
         evidence,
         params,
-        fix: fix.map(String::from),
+        fix,
     }
 }
 
@@ -124,7 +125,7 @@ impl Check for IntegrityCheck {
                 Status::Critical,
                 "SFC/DISM reported corrupted system files".into(),
                 BTreeMap::new(),
-                Some("run_sfc_dism"),
+                Some(FixId::RunSfcDism),
             )]),
         }
     }
@@ -248,7 +249,7 @@ mod tests {
         let issues = IntegrityCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Critical);
-        assert_eq!(issues[0].fix.as_deref(), Some("run_sfc_dism"));
+        assert_eq!(issues[0].fix, Some(FixId::RunSfcDism));
     }
 
     #[test]

@@ -32,8 +32,8 @@ pub struct Issue {
     /// Language-neutral values (drive, percent, sizes) for i18n interpolation.
     #[serde(default)]
     pub params: BTreeMap<String, String>,
-    /// Placeholder; Task 9 migrates this to a `FixId` enum.
-    pub fix: Option<String>,
+    /// The fix offered for this issue, if any.
+    pub fix: Option<crate::fixes::FixId>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

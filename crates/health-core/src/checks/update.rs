@@ -1,4 +1,5 @@
 use crate::engine::Check;
+use crate::fixes::FixId;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{ProbeError, ServiceState, SystemProbe};
 use std::collections::BTreeMap;
@@ -20,7 +21,7 @@ fn issue(
     status: Status,
     evidence: String,
     params: BTreeMap<String, String>,
-    fix: Option<&str>,
+    fix: Option<FixId>,
 ) -> Issue {
     Issue {
         id: id.into(),
@@ -30,7 +31,7 @@ fn issue(
         why_key: format!("issue.update.{key}.why"),
         evidence,
         params,
-        fix: fix.map(String::from),
+        fix,
     }
 }
 
@@ -78,7 +79,7 @@ impl Check for UpdateServiceCheck {
             Status::Critical,
             evidence,
             BTreeMap::from([("service".to_string(), UPDATE_SERVICE.to_string())]),
-            Some("reset_windows_update"),
+            Some(FixId::ResetWindowsUpdate),
         )])
     }
 }
@@ -155,7 +156,7 @@ mod tests {
             .unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Critical);
-        assert_eq!(issues[0].fix.as_deref(), Some("reset_windows_update"));
+        assert_eq!(issues[0].fix, Some(FixId::ResetWindowsUpdate));
         assert_eq!(issues[0].params["service"], UPDATE_SERVICE);
     }
 
@@ -165,7 +166,7 @@ mod tests {
             .scan(&svc(ServiceState::Missing))
             .unwrap();
         assert_eq!(issues[0].status, Status::Critical);
-        assert_eq!(issues[0].fix.as_deref(), Some("reset_windows_update"));
+        assert_eq!(issues[0].fix, Some(FixId::ResetWindowsUpdate));
     }
 
     #[test]
