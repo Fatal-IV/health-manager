@@ -10,6 +10,7 @@
 mod actions;
 mod cli;
 mod log;
+mod repair;
 mod winfs;
 
 use actions::keys;

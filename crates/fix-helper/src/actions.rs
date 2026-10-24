@@ -1,6 +1,5 @@
-//! Allow-listed fixes. Aşama 1 implements CleanTemp, EmptyRecycleBin and
-//! DisableStartupItem; every other fix id is recognized but deferred and
-//! returns `fix.result.not_available` without touching the system.
+//! Allow-listed fixes. The user-level ones live here; the machine-wide
+//! repairs are in `repair.rs`.
 //!
 //! Arguments are DATA only: they are compared against freshly enumerated
 //! system state and never become a path, registry key or command line.
@@ -62,16 +61,12 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
         FixId::CleanTemp => clean_temp(&mut log),
         FixId::EmptyRecycleBin => empty_recycle_bin(&mut log),
         FixId::DisableStartupItem => disable_startup_item(arg, &mut log),
-        // Deferred beyond Aşama 1: recognized, but nothing is executed.
-        FixId::EndProcess
-        | FixId::CleanUpdateLeftovers
-        | FixId::ResetWindowsUpdate
-        | FixId::EnableDefenderRealtime
-        | FixId::EnableFirewall
-        | FixId::RunSfcDism => {
-            log.push(format!("{} is not available in this version", fix.as_str()));
-            Err(keys::NOT_AVAILABLE)
-        }
+        FixId::EndProcess => crate::repair::end_process(arg, &mut log),
+        FixId::CleanUpdateLeftovers => crate::repair::clean_update_leftovers(&mut log),
+        FixId::ResetWindowsUpdate => crate::repair::reset_windows_update(&mut log),
+        FixId::EnableDefenderRealtime => crate::repair::enable_defender_realtime(&mut log),
+        FixId::EnableFirewall => crate::repair::enable_firewall(&mut log),
+        FixId::RunSfcDism => crate::repair::run_sfc_dism(&mut log),
     };
     match r {
         Ok(params) => Ok(ActionReport { params, log }),
@@ -393,24 +388,9 @@ mod tests {
     }
 
     #[test]
-    fn deferred_fixes_run_nothing_and_say_not_available() {
-        for f in [
-            FixId::CleanUpdateLeftovers,
-            FixId::ResetWindowsUpdate,
-            FixId::EnableDefenderRealtime,
-            FixId::EnableFirewall,
-            FixId::RunSfcDism,
-        ] {
-            assert_eq!(run(f, None).unwrap_err().key, keys::NOT_AVAILABLE, "{f:?}");
-        }
-        assert_eq!(
-            run(FixId::EndProcess, Some("1234")).unwrap_err().key,
-            keys::NOT_AVAILABLE
-        );
-        assert_eq!(
-            run(FixId::EndProcess, Some("x")).unwrap_err().key,
-            keys::INVALID
-        );
+    fn end_process_rejects_bad_pids_before_touching_anything() {
+        assert_eq!(run(FixId::EndProcess, Some("x")).unwrap_err().key, keys::INVALID);
+        assert_eq!(run(FixId::EndProcess, Some("4")).unwrap_err().key, keys::INVALID);
     }
 
     #[test]

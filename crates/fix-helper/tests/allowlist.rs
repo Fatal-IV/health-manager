@@ -222,19 +222,9 @@ fn clean_temp_refuses_a_custom_temp_folder() {
 }
 
 #[test]
-fn deferred_fixes_exit_3_and_run_nothing() {
-    let dir = scratch("deferred");
-    let cases: &[&[&str]] = &[
-        &["--fix", "end_process", "--arg", "1234"],
-        &["--fix", "clean_update_leftovers"],
-        &["--fix", "reset_windows_update"],
-        &["--fix", "enable_defender_realtime"],
-        &["--fix", "enable_firewall"],
-        &["--fix", "run_sfc_dism"],
-    ];
-    for args in cases {
-        let r = run_in(&dir, args, true);
-        assert_eq!(r.code, 3, "{args:?}");
-        assert_failed_result(&r, "fix.result.not_available");
-    }
+fn end_process_refuses_system_pids_without_running_anything() {
+    let dir = scratch("endproc");
+    let r = run_in(&dir, &["--fix", "end_process", "--arg", "4"], true);
+    assert_eq!(r.code, 2);
+    assert_failed_result(&r, "fix.result.invalid");
 }
