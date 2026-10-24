@@ -13,7 +13,8 @@ pub enum FixId {
     CleanUpdateLeftovers,
     /// Arg: startup id `HKCU|name` / `HKLM|name`. Helper contract: the value
     /// is DATA only; re-enumerate the real Run entries (64-bit and 32-bit
-    /// registry views) and act only on an exact id match.
+    /// registry views) and act only on an exact id match. Never build a registry path, file path
+    /// or command line from it, and never pass it to a shell.
     DisableStartupItem,
     /// Arg: numeric pid. Helper contract: refuse protected/critical processes
     /// and verify the pid still maps to a running process (Task 10).
@@ -36,6 +37,36 @@ impl FixId {
         FixId::EnableFirewall,
         FixId::RunSfcDism,
     ];
+
+    /// Exhaustive (no wildcard): a new variant fails to compile until it is
+    /// given an index here, which the completeness test checks against `ALL`.
+    pub const fn index(self) -> usize {
+        match self {
+            FixId::CleanTemp => 0,
+            FixId::EmptyRecycleBin => 1,
+            FixId::CleanUpdateLeftovers => 2,
+            FixId::DisableStartupItem => 3,
+            FixId::EndProcess => 4,
+            FixId::ResetWindowsUpdate => 5,
+            FixId::EnableDefenderRealtime => 6,
+            FixId::EnableFirewall => 7,
+            FixId::RunSfcDism => 8,
+        }
+    }
+
+    /// Exhaustive: every variant declares whether it requires an argument.
+    pub const fn takes_arg(self) -> bool {
+        match self {
+            FixId::DisableStartupItem | FixId::EndProcess => true,
+            FixId::CleanTemp
+            | FixId::EmptyRecycleBin
+            | FixId::CleanUpdateLeftovers
+            | FixId::ResetWindowsUpdate
+            | FixId::EnableDefenderRealtime
+            | FixId::EnableFirewall
+            | FixId::RunSfcDism => false,
+        }
+    }
 
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -222,7 +253,16 @@ mod tests {
     use crate::probe::fake::FakeProbe;
 
     fn takes_arg(f: FixId) -> bool {
-        matches!(f, FixId::DisableStartupItem | FixId::EndProcess)
+        f.takes_arg()
+    }
+
+    #[test]
+    fn all_is_complete_and_distinct() {
+        let max = FixId::ALL.iter().map(|f| f.index()).max().unwrap();
+        assert_eq!(FixId::ALL.len(), max + 1);
+        for (i, f) in FixId::ALL.iter().enumerate() {
+            assert_eq!(f.index(), i, "{f:?} out of order or duplicated");
+        }
     }
 
     #[test]
