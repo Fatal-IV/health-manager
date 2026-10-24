@@ -212,7 +212,7 @@ mod tests {
     fn startup(n: usize, impact: Impact) -> Vec<StartupItem> {
         (0..n)
             .map(|i| StartupItem {
-                id: format!("HKCU:app{i}"),
+                id: format!("HKCU|app{i}"),
                 name: format!("app{i}"),
                 impact,
             })
@@ -283,7 +283,7 @@ mod tests {
         assert_eq!(issues[0].params["count"], "11");
         let items: serde_json::Value = serde_json::from_str(&issues[0].params["items"]).unwrap();
         assert_eq!(items.as_array().unwrap().len(), 11);
-        assert_eq!(items[0]["id"], "HKCU:app0");
+        assert_eq!(items[0]["id"], "HKCU|app0");
         assert_eq!(items[0]["name"], "app0");
         let ten = FakeProbe {
             startup_items: startup(10, Impact::High),

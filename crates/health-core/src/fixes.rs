@@ -11,7 +11,12 @@ pub enum FixId {
     CleanTemp,
     EmptyRecycleBin,
     CleanUpdateLeftovers,
+    /// Arg: startup id `HKCU|name` / `HKLM|name`. Helper contract: the value
+    /// is DATA only; re-enumerate the real Run entries (64-bit and 32-bit
+    /// registry views) and act only on an exact id match.
     DisableStartupItem,
+    /// Arg: numeric pid. Helper contract: refuse protected/critical processes
+    /// and verify the pid still maps to a running process (Task 10).
     EndProcess,
     ResetWindowsUpdate,
     EnableDefenderRealtime,
@@ -158,8 +163,16 @@ pub fn fix_plan(fix: FixId, arg: Option<&str>) -> FixPlan {
 
 const MAX_ARG_LEN: usize = 512;
 
-/// Strict argument check. Must run before planning or applying a fix; the
-/// elevated helper relies on it. Accepted values must never be passed to a shell.
+/// Argument contract check. Must run before planning or applying a fix.
+///
+/// This is a contract, not character filtering: for `DisableStartupItem` the
+/// value may contain `\` and `/` (legal in registry value names). The elevated
+/// helper (Task 10) must treat the value as DATA only: re-enumerate the real
+/// Run entries in both the 64-bit and 32-bit registry views and act only on an
+/// exact id match; never build a registry path, file path or command line from
+/// it, and never pass it to a shell. For `EndProcess` the helper must also
+/// refuse protected/critical processes and verify the pid still maps to a
+/// running process.
 pub fn validate_arg(fix: FixId, arg: Option<&str>) -> Result<(), FixError> {
     let bad = |reason| {
         Err(FixError::InvalidArg {
@@ -177,9 +190,6 @@ pub fn validate_arg(fix: FixId, arg: Option<&str>) -> Result<(), FixError> {
             }
             if a.chars().any(|c| c.is_control()) {
                 return bad("control characters");
-            }
-            if a.contains(['\\', '/']) {
-                return bad("path separators");
             }
             match a.split_once('|') {
                 Some(("HKCU" | "HKLM", name)) if !name.trim().is_empty() => Ok(()),
@@ -211,15 +221,9 @@ mod tests {
     use crate::checks::all_checks;
     use crate::probe::fake::FakeProbe;
 
-    const NO_ARG: [FixId; 7] = [
-        FixId::CleanTemp,
-        FixId::EmptyRecycleBin,
-        FixId::CleanUpdateLeftovers,
-        FixId::ResetWindowsUpdate,
-        FixId::EnableDefenderRealtime,
-        FixId::EnableFirewall,
-        FixId::RunSfcDism,
-    ];
+    fn takes_arg(f: FixId) -> bool {
+        matches!(f, FixId::DisableStartupItem | FixId::EndProcess)
+    }
 
     #[test]
     fn every_fix_id_roundtrips_through_str() {
@@ -328,22 +332,25 @@ mod tests {
     fn validate_arg_accepts_good_values() {
         assert!(validate_arg(FixId::DisableStartupItem, Some("HKCU|OneDrive")).is_ok());
         assert!(validate_arg(FixId::DisableStartupItem, Some("HKLM|Adobe Updater")).is_ok());
+        assert!(validate_arg(FixId::DisableStartupItem, Some("HKCU|Foo/Bar")).is_ok());
+        assert!(validate_arg(FixId::DisableStartupItem, Some(r"HKLM|a\b")).is_ok());
         assert!(validate_arg(FixId::EndProcess, Some("5")).is_ok());
         assert!(validate_arg(FixId::EndProcess, Some("4294967295")).is_ok());
-        for f in NO_ARG {
+        for f in FixId::ALL.into_iter().filter(|f| !takes_arg(*f)) {
             assert!(validate_arg(f, None).is_ok(), "{f:?}");
         }
     }
 
     #[test]
     fn validate_arg_requires_arg_where_needed() {
-        assert!(validate_arg(FixId::DisableStartupItem, None).is_err());
-        assert!(validate_arg(FixId::EndProcess, None).is_err());
+        for f in FixId::ALL {
+            assert_eq!(validate_arg(f, None).is_err(), takes_arg(f), "{f:?}");
+        }
     }
 
     #[test]
     fn validate_arg_rejects_stray_arg() {
-        for f in NO_ARG {
+        for f in FixId::ALL.into_iter().filter(|f| !takes_arg(*f)) {
             assert!(validate_arg(f, Some("x")).is_err(), "{f:?}");
             assert!(validate_arg(f, Some("")).is_err(), "{f:?}");
         }
@@ -370,8 +377,6 @@ mod tests {
             "HKCU|",
             "HKCU|a\nb",
             "HKCU|a\0b",
-            "HKCU|..\\x",
-            "HKCU|a/b",
             "HKXX|a",
         ];
         for h in hostile {
