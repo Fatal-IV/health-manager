@@ -3,11 +3,11 @@
 use super::{DiskInfo, Impact, ProbeError, ProcInfo, StartupItem, SystemProbe};
 use std::path::{Path, PathBuf};
 use windows::core::{HSTRING, PCWSTR};
-use windows::Win32::Foundation::ERROR_SUCCESS;
+use windows::Win32::Foundation::{ERROR_MORE_DATA, ERROR_SUCCESS};
 use windows::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives};
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
-    KEY_READ,
+    KEY_READ, KEY_WOW64_32KEY, REG_SAM_FLAGS,
 };
 use windows::Win32::UI::Shell::{SHQueryRecycleBinW, SHQUERYRBINFO};
 
@@ -47,18 +47,22 @@ fn dir_size(path: &Path) -> u64 {
     total
 }
 
-/// Names of the values under a registry key; a missing key yields an empty list.
-fn registry_value_names(root: HKEY, subkey: &str) -> Vec<String> {
+/// Values under a registry key as `(name, first data byte)`; a missing key yields
+/// an empty list.
+fn registry_values(root: HKEY, subkey: &str, view: REG_SAM_FLAGS) -> Vec<(String, Option<u8>)> {
     let sub = HSTRING::from(subkey);
     let mut key = HKEY::default();
-    if unsafe { RegOpenKeyExW(root, PCWSTR(sub.as_ptr()), 0, KEY_READ, &mut key) } != ERROR_SUCCESS
+    if unsafe { RegOpenKeyExW(root, PCWSTR(sub.as_ptr()), 0, KEY_READ | view, &mut key) }
+        != ERROR_SUCCESS
     {
         return Vec::new();
     }
-    let mut names = Vec::new();
+    let mut out = Vec::new();
+    let mut buf = vec![0u16; 16384];
+    let mut data = [0u8; 16];
     for index in 0u32.. {
-        let mut buf = [0u16; 16384];
         let mut len = buf.len() as u32;
+        let mut dlen = data.len() as u32;
         let rc = unsafe {
             RegEnumValueW(
                 key,
@@ -67,17 +71,26 @@ fn registry_value_names(root: HKEY, subkey: &str) -> Vec<String> {
                 &mut len,
                 None,
                 None,
-                None,
-                None,
+                Some(data.as_mut_ptr()),
+                Some(&mut dlen),
             )
         };
+        if rc == ERROR_MORE_DATA {
+            // Data longer than our small buffer: the name and first byte are still valid.
+            out.push((
+                String::from_utf16_lossy(&buf[..len as usize]),
+                Some(data[0]),
+            ));
+            continue;
+        }
         if rc != ERROR_SUCCESS {
             break;
         }
-        names.push(String::from_utf16_lossy(&buf[..len as usize]));
+        let first = (dlen > 0).then_some(data[0]);
+        out.push((String::from_utf16_lossy(&buf[..len as usize]), first));
     }
     let _ = unsafe { RegCloseKey(key) };
-    names
+    out
 }
 
 impl SystemProbe for WindowsProbe {
@@ -167,6 +180,8 @@ impl SystemProbe for WindowsProbe {
         let mut v: Vec<ProcInfo> = sys
             .processes()
             .values()
+            // pid 0 is the System Idle Process, not a real process.
+            .filter(|p| p.pid().as_u32() != 0)
             .map(|p| ProcInfo {
                 pid: p.pid().as_u32(),
                 name: p.name().to_string_lossy().into_owned(),
@@ -181,16 +196,41 @@ impl SystemProbe for WindowsProbe {
 
     fn startup_items(&self) -> Result<Vec<StartupItem>, ProbeError> {
         const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-        let mut out = Vec::new();
+        const RUN_32: &str = r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
+        const APPROVED: &str =
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+        const APPROVED_32: &str =
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32";
+        let mut out: Vec<StartupItem> = Vec::new();
         for (root, label) in [(HKEY_CURRENT_USER, "HKCU"), (HKEY_LOCAL_MACHINE, "HKLM")] {
-            for name in registry_value_names(root, RUN) {
-                out.push(StartupItem {
-                    id: format!("{label}|{name}"),
-                    // No cheap reliable impact measure exists (it would need boot
-                    // trace data), so every registry Run entry is rated Medium.
-                    impact: Impact::Medium,
-                    name,
-                });
+            // StartupApproved: first byte even (0x02, 0x06) = enabled, odd = disabled;
+            // a missing value means enabled.
+            let approved = registry_values(root, APPROVED, REG_SAM_FLAGS(0));
+            let approved_32 = registry_values(root, APPROVED_32, REG_SAM_FLAGS(0));
+            // HKLM 32-bit programs live in the WOW6432Node view; read it explicitly
+            // with KEY_WOW64_32KEY so it works regardless of process bitness.
+            let views = [
+                (RUN, REG_SAM_FLAGS(0), &approved),
+                (RUN, KEY_WOW64_32KEY, &approved_32),
+                (RUN_32, REG_SAM_FLAGS(0), &approved_32),
+            ];
+            for (key, view, appr) in views {
+                for (name, _) in registry_values(root, key, view) {
+                    let disabled = appr.iter().any(|(n, b)| {
+                        n.eq_ignore_ascii_case(&name) && b.is_some_and(|b| b & 1 == 1)
+                    });
+                    let id = format!("{label}|{name}");
+                    if disabled || out.iter().any(|i| i.id == id) {
+                        continue;
+                    }
+                    out.push(StartupItem {
+                        id,
+                        // No cheap reliable impact measure exists (it would need boot
+                        // trace data), so every registry Run entry is rated Medium.
+                        impact: Impact::Medium,
+                        name,
+                    });
+                }
             }
         }
         Ok(out)
@@ -208,5 +248,15 @@ mod tests {
         assert!(disks.iter().any(|d| d.total_bytes > 0));
         p.temp_bytes().unwrap();
         p.update_leftovers_bytes().unwrap();
+    }
+
+    #[test]
+    fn real_probe_performance_smoke() {
+        let p = WindowsProbe::new();
+        assert!(p.ram_usage().unwrap().1 > 0);
+        let cpu = p.cpu_percent().unwrap();
+        assert!((0.0..=100.0).contains(&cpu));
+        assert!(!p.top_processes(3).unwrap().is_empty());
+        assert!(p.startup_items().is_ok());
     }
 }

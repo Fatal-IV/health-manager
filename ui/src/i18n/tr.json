@@ -16,7 +16,7 @@
       },
       "startup_items": {
         "title": "Çok fazla program bilgisayarla birlikte açılıyor",
-        "why": "Bilgisayar açılırken {{count}} ağır program kendiliğinden başlıyor. Bu, açılışı yavaşlatır. Gerek duymadıklarınızın otomatik başlamasını kapatabilirsiniz."
+        "why": "Bilgisayar açılırken {{count}} program kendiliğinden başlıyor. Bu, açılışı yavaşlatır. Gerek duymadıklarınızın otomatik başlamasını kapatabilirsiniz."
       }
     },
     "storage": {

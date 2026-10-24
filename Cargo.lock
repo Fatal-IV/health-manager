@@ -1199,6 +1199,7 @@ name = "health-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "sysinfo",
  "thiserror 1.0.69",
  "windows 0.58.0",
