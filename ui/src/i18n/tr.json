@@ -45,6 +45,28 @@
         "why": "Bu bilgisayarda başarılı bir Windows güncellemesi kaydı görünmüyor. Güncellemeler olmadan bilgisayar güvenlik açıklarına açık kalabilir. Windows Update'ten güncellemeleri kontrol edin."
       }
     },
+    "security": {
+      "defender_realtime": {
+        "title": "Virüs koruması kapalı",
+        "why": "Windows Defender'ın anlık koruması kapalı, bu yüzden zararlı yazılımlar fark edilmeden bilgisayara girebilir. Korumayı tek adımda yeniden açabiliriz."
+      },
+      "defender_signatures": {
+        "title": "Virüs tanımları {{days}} gündür güncellenmedi",
+        "why": "Virüs tanımları {{days}} gün öncesine ait. Eski tanımlarla yeni zararlı yazılımlar tanınmayabilir. İnternete bağlıyken Windows Güvenliği'nden güncelleme yapın."
+      },
+      "defender_third_party": {
+        "title": "Virüs koruması durumu doğrulanamadı",
+        "why": "Bilgisayarda başka bir virüs koruma programı var, bu yüzden Windows Defender kapalı. Bu normaldir; ancak o programın açık ve güncel olduğunu buradan denetleyemiyoruz. Lütfen programı kendi ekranından kontrol edin."
+      },
+      "firewall": {
+        "title": "Güvenlik duvarı kapalı",
+        "why": "Güvenlik duvarı, internetten gelen istenmeyen bağlantıları engeller. Kapalı olduğu için bilgisayarınız saldırılara açık. Duvarı tek adımda yeniden açabiliriz."
+      },
+      "uac": {
+        "title": "Kullanıcı Hesabı Denetimi kapalı veya sessiz",
+        "why": "Bu özellik, bir program bilgisayarda değişiklik yapmadan önce size sorar. Kapalıyken zararlı bir program sizi uyarmadan işlem yapabilir. Ayarı Windows'ta \"Kullanıcı Hesabı Denetimi ayarlarını değiştir\" bölümünden açabilirsiniz."
+      }
+    },
     "storage": {
       "disk_full": {
         "title": "{{drive}} sürücüsünde boş yer azalıyor",

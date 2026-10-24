@@ -1,11 +1,16 @@
 //! Real Windows implementation of [`SystemProbe`].
 
-use super::{DiskInfo, Impact, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe};
+use super::{
+    DefenderState, DiskInfo, Impact, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe,
+    UacLevel,
+};
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Foundation::{
-    ERROR_MORE_DATA, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS, VARIANT_FALSE,
+    ERROR_FILE_NOT_FOUND, ERROR_MORE_DATA, ERROR_SERVICE_DOES_NOT_EXIST, ERROR_SUCCESS,
+    VARIANT_FALSE,
 };
 use windows::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives};
 use windows::Win32::System::Com::{
@@ -13,7 +18,7 @@ use windows::Win32::System::Com::{
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumValueW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
-    HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, REG_SAM_FLAGS, RRF_RT_REG_SZ,
+    HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, REG_SAM_FLAGS, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
 };
 use windows::Win32::System::Services::{
     CloseServiceHandle, OpenSCManagerW, OpenServiceW, QueryServiceConfigW, QueryServiceStatus,
@@ -78,6 +83,93 @@ fn wua_last_success() -> Result<Option<SystemTime>, ProbeError> {
         }
     }
     Ok(newest)
+}
+
+/// `Ok(None)` when the key or value does not exist.
+fn reg_dword(root: HKEY, subkey: &str, value: &str) -> Result<Option<u32>, ProbeError> {
+    let (sub, val) = (HSTRING::from(subkey), HSTRING::from(value));
+    let mut data = 0u32;
+    let mut size = std::mem::size_of::<u32>() as u32;
+    let rc = unsafe {
+        RegGetValueW(
+            root,
+            PCWSTR(sub.as_ptr()),
+            PCWSTR(val.as_ptr()),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut data as *mut u32 as *mut _),
+            Some(&mut size),
+        )
+    };
+    if rc == ERROR_SUCCESS {
+        Ok(Some(data))
+    } else if rc == ERROR_FILE_NOT_FOUND {
+        Ok(None)
+    } else {
+        Err(ProbeError::Unavailable(format!(
+            "registry {subkey}\\{value}: {rc:?}"
+        )))
+    }
+}
+
+fn uac_from_values(enable_lua: u32, consent_admin: Option<u32>) -> UacLevel {
+    if enable_lua == 0 {
+        UacLevel::Disabled
+    } else if consent_admin == Some(0) {
+        UacLevel::NeverNotify
+    } else {
+        UacLevel::Enabled
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "PascalCase")]
+struct MpComputerStatus {
+    real_time_protection_enabled: bool,
+    antivirus_signature_age: u32,
+}
+
+/// `(real-time protection on, signature age in days)` from Defender's WMI provider.
+fn wmi_defender() -> Result<(bool, u32), ProbeError> {
+    let wmi_err = |e: wmi::WMIError| ProbeError::Unavailable(format!("wmi defender: {e}"));
+    let con = wmi::WMIConnection::with_namespace_path("ROOT\\Microsoft\\Windows\\Defender")
+        .map_err(wmi_err)?;
+    let rows: Vec<MpComputerStatus> = con
+        .raw_query(
+            "SELECT RealTimeProtectionEnabled, AntivirusSignatureAge FROM MSFT_MpComputerStatus",
+        )
+        .map_err(wmi_err)?;
+    let s = rows
+        .first()
+        .ok_or_else(|| ProbeError::Unavailable("MSFT_MpComputerStatus empty".into()))?;
+    Ok((s.real_time_protection_enabled, s.antivirus_signature_age))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AvProduct {
+    instance_guid: String,
+    product_state: u32,
+}
+
+/// Windows Defender's fixed product GUID in Security Center.
+const DEFENDER_GUID: &str = "{D68DDC3A-831F-4FAE-9E44-DA132C1ACF46}";
+
+/// SecurityCenter2 `productState`: bits 12..15 are the product state; 1 = on.
+fn av_state_on(product_state: u32) -> bool {
+    (product_state >> 12) & 0xF == 1
+}
+
+/// True when a non-Defender antivirus is registered and switched on.
+fn third_party_av_active() -> Result<bool, ProbeError> {
+    let wmi_err = |e: wmi::WMIError| ProbeError::Unavailable(format!("wmi securitycenter: {e}"));
+    let con = wmi::WMIConnection::with_namespace_path("ROOT\\SecurityCenter2").map_err(wmi_err)?;
+    let rows: Vec<AvProduct> = con
+        .raw_query("SELECT instanceGuid, productState FROM AntiVirusProduct")
+        .map_err(wmi_err)?;
+    Ok(rows.iter().any(|r| {
+        !r.instance_guid.eq_ignore_ascii_case(DEFENDER_GUID) && av_state_on(r.product_state)
+    }))
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -372,6 +464,60 @@ impl SystemProbe for WindowsProbe {
 
     /// Last successful update. Order: registry `LastSuccessTime` (UTC string;
     /// often absent or stale on Windows 10/11), then the WUA update history.
+    fn defender(&self) -> Result<DefenderState, ProbeError> {
+        let _com = ComGuard::new();
+        match wmi_defender() {
+            Ok((realtime, signature_age_days)) => Ok(DefenderState {
+                realtime,
+                signature_age_days,
+                // Only relevant when Defender is off; skip the extra query otherwise.
+                third_party_av: !realtime && third_party_av_active().unwrap_or(false),
+            }),
+            // Defender's WMI provider is absent when another AV replaced it.
+            Err(e) => match third_party_av_active() {
+                Ok(true) => Ok(DefenderState {
+                    realtime: false,
+                    signature_age_days: 0,
+                    third_party_av: true,
+                }),
+                _ => Err(e),
+            },
+        }
+    }
+
+    fn firewall_enabled(&self) -> Result<bool, ProbeError> {
+        const BASE: &str =
+            "SYSTEM\\CurrentControlSet\\Services\\SharedAccess\\Parameters\\FirewallPolicy";
+        let mut read_any = false;
+        for profile in ["StandardProfile", "PublicProfile", "DomainProfile"] {
+            match reg_dword(
+                HKEY_LOCAL_MACHINE,
+                &format!("{BASE}\\{profile}"),
+                "EnableFirewall",
+            )? {
+                Some(0) => return Ok(false),
+                Some(_) => read_any = true,
+                // Value absent: Windows treats a missing EnableFirewall as enabled.
+                None => {}
+            }
+        }
+        // Not a single profile could be read: say so rather than claim "enabled".
+        if read_any {
+            Ok(true)
+        } else {
+            Err(ProbeError::Unavailable("no firewall profile found".into()))
+        }
+    }
+
+    fn uac_level(&self) -> Result<UacLevel, ProbeError> {
+        const KEY: &str = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
+        let lua = reg_dword(HKEY_LOCAL_MACHINE, KEY, "EnableLUA")?
+            .ok_or_else(|| ProbeError::Unavailable("EnableLUA not found".into()))?;
+        // Absent ConsentPromptBehaviorAdmin means the default (prompt).
+        let consent = reg_dword(HKEY_LOCAL_MACHINE, KEY, "ConsentPromptBehaviorAdmin")?;
+        Ok(uac_from_values(lua, consent))
+    }
+
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
         choose_last_update(registry_last_success(), wua_last_success)
     }
@@ -555,5 +701,28 @@ mod tests {
         }
         // None (never) and Some are both fine; it must not panic.
         let _ = p.last_update_success();
+    }
+
+    #[test]
+    fn uac_and_av_decoding() {
+        assert_eq!(uac_from_values(0, Some(5)), UacLevel::Disabled);
+        assert_eq!(uac_from_values(1, Some(0)), UacLevel::NeverNotify);
+        assert_eq!(uac_from_values(1, Some(5)), UacLevel::Enabled);
+        assert_eq!(uac_from_values(1, None), UacLevel::Enabled);
+        assert!(av_state_on(0x1000));
+        assert!(av_state_on(0x11000));
+        assert!(!av_state_on(0x0000));
+        assert!(!av_state_on(0x2000)); // snoozed
+    }
+
+    #[test]
+    fn real_probe_security_smoke() {
+        let p = WindowsProbe::new();
+        assert!(p.firewall_enabled().is_ok());
+        assert!(p.uac_level().is_ok());
+        match p.defender() {
+            Ok(_) | Err(ProbeError::Unavailable(_)) => {}
+            Err(e) => panic!("unexpected: {e}"),
+        }
     }
 }

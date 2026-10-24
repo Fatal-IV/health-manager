@@ -55,6 +55,25 @@ pub enum ServiceState {
     Missing,
 }
 
+/// Windows Defender state. `third_party_av` is true when another antivirus is
+/// registered and active; Defender is then normally switched off on purpose, so
+/// `realtime == false` must not be read as unprotected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DefenderState {
+    pub realtime: bool,
+    pub signature_age_days: u32,
+    pub third_party_av: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UacLevel {
+    /// `EnableLUA` = 0.
+    Disabled,
+    /// UAC on, but administrators are never prompted (`ConsentPromptBehaviorAdmin` = 0).
+    NeverNotify,
+    Enabled,
+}
+
 /// Abstraction over the host system; later tasks add methods here.
 pub trait SystemProbe: Send + Sync {
     fn disks(&self) -> Result<Vec<DiskInfo>, ProbeError>;
@@ -78,6 +97,11 @@ pub trait SystemProbe: Send + Sync {
     fn service_state(&self, name: &str) -> Result<ServiceState, ProbeError>;
     /// Time of the last successful Windows update install; `None` = never/unknown.
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError>;
+    /// Windows Defender status (WMI); `Err` when it cannot be determined.
+    fn defender(&self) -> Result<DefenderState, ProbeError>;
+    /// `false` if any firewall profile (standard, public, domain) is disabled.
+    fn firewall_enabled(&self) -> Result<bool, ProbeError>;
+    fn uac_level(&self) -> Result<UacLevel, ProbeError>;
     /// Current time; a method so tests do not depend on the real clock.
     fn now(&self) -> SystemTime {
         SystemTime::now()

@@ -1,4 +1,6 @@
-use super::{DiskInfo, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe};
+use super::{
+    DefenderState, DiskInfo, ProbeError, ProcInfo, ServiceState, StartupItem, SystemProbe, UacLevel,
+};
 use std::collections::BTreeMap;
 use std::time::SystemTime;
 
@@ -29,6 +31,14 @@ pub struct FakeProbe {
     pub services_error: Option<ProbeError>,
     pub last_update: Option<SystemTime>,
     pub last_update_error: Option<ProbeError>,
+    /// `None` = healthy, up-to-date Defender.
+    pub defender: Option<DefenderState>,
+    pub defender_error: Option<ProbeError>,
+    pub firewall: bool,
+    pub firewall_error: Option<ProbeError>,
+    /// `None` = `UacLevel::Enabled`.
+    pub uac: Option<UacLevel>,
+    pub uac_error: Option<ProbeError>,
     /// Fixed clock; `None` uses the real time.
     pub now: Option<SystemTime>,
 }
@@ -82,6 +92,22 @@ impl SystemProbe for FakeProbe {
     }
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
         pick(&self.last_update_error, self.last_update)
+    }
+    fn defender(&self) -> Result<DefenderState, ProbeError> {
+        pick(
+            &self.defender_error,
+            self.defender.unwrap_or(DefenderState {
+                realtime: true,
+                signature_age_days: 0,
+                third_party_av: false,
+            }),
+        )
+    }
+    fn firewall_enabled(&self) -> Result<bool, ProbeError> {
+        pick(&self.firewall_error, self.firewall)
+    }
+    fn uac_level(&self) -> Result<UacLevel, ProbeError> {
+        pick(&self.uac_error, self.uac.unwrap_or(UacLevel::Enabled))
     }
     fn now(&self) -> SystemTime {
         self.now.unwrap_or_else(SystemTime::now)

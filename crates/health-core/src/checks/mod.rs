@@ -1,4 +1,5 @@
 pub mod performance;
+pub mod security;
 pub mod storage;
 pub mod update;
 
@@ -17,5 +18,8 @@ pub fn all_checks() -> Vec<Box<dyn Check>> {
         Box::new(update::PendingUpdatesCheck),
         Box::new(update::UpdateServiceCheck),
         Box::new(update::LastUpdateCheck),
+        Box::new(security::DefenderCheck),
+        Box::new(security::FirewallCheck),
+        Box::new(security::UacCheck),
     ]
 }

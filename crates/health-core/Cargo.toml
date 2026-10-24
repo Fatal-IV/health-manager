@@ -22,3 +22,4 @@ windows = { version = "0.58", features = [
     "Win32_System_UpdateAgent",
     "Win32_UI_Shell",
 ] }
+wmi = { version = "0.18.4", default-features = false }
