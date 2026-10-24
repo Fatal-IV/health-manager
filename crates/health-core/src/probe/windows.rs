@@ -319,13 +319,26 @@ fn parse_boot_time_secs(xml: &str) -> Option<u32> {
     Some((ms / 1000).min(u32::MAX as u64) as u32)
 }
 
-/// Maps a failed `EvtQuery` Win32 error code. Access denied (5: the Operational
+/// Win32 error number of a raw error value: unwrapped only when it is an
+/// HRESULT in the Win32 facility (0x8007xxxx) or already fits in 16 bits;
+/// any other HRESULT is returned unchanged so its low bits cannot collide.
+fn win32_code(raw: u32) -> u32 {
+    const FACILITY_WIN32: u32 = 7;
+    if (raw >> 16) & 0x1FFF == FACILITY_WIN32 && raw & 0x8000_0000 != 0 {
+        raw & 0xFFFF
+    } else {
+        raw
+    }
+}
+
+/// Maps a failed `EvtQuery`/`EvtNext` Win32 error code. Access denied (5: the Operational
 /// log is not readable without administrator rights) and channel-not-found
 /// (15007) both mean "no readable boot event" -> `Ok(None)` (shown as Unknown,
 /// never as healthy). Everything else is a real failure.
-fn map_evt_error(code: u32) -> Result<Option<u32>, ProbeError> {
+fn map_evt_error(raw: u32) -> Result<Option<u32>, ProbeError> {
     const ERROR_ACCESS_DENIED: u32 = 5;
     const ERROR_EVT_CHANNEL_NOT_FOUND: u32 = 15007;
+    let code = win32_code(raw);
     match code {
         ERROR_ACCESS_DENIED | ERROR_EVT_CHANNEL_NOT_FOUND => Ok(None),
         c => Err(ProbeError::Unavailable(format!("event log error {c}"))),
@@ -335,7 +348,7 @@ fn map_evt_error(code: u32) -> Result<Option<u32>, ProbeError> {
 /// Newest boot duration (Event ID 100) in seconds; `None` when there is none.
 fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
     const ERROR_NO_MORE_ITEMS: u32 = 259;
-    let win32 = |e: &windows::core::Error| e.code().0 as u32 & 0xFFFF;
+    let raw = |e: &windows::core::Error| e.code().0 as u32;
     let channel = HSTRING::from("Microsoft-Windows-Diagnostics-Performance/Operational");
     let query = HSTRING::from("*[System[(EventID=100)]]");
     let rs = match unsafe {
@@ -347,15 +360,15 @@ fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
         )
     } {
         Ok(h) => EvtGuard(h),
-        Err(e) => return map_evt_error(win32(&e)),
+        Err(e) => return map_evt_error(raw(&e)),
     };
     let mut events = [0isize; 1];
     let mut returned = 0u32;
     if let Err(e) = unsafe { EvtNext(rs.0, &mut events, 5000, 0, &mut returned) } {
-        if win32(&e) == ERROR_NO_MORE_ITEMS {
+        if win32_code(raw(&e)) == ERROR_NO_MORE_ITEMS {
             return Ok(None);
         }
-        return Err(unavailable(e));
+        return map_evt_error(raw(&e));
     }
     if returned == 0 {
         return Ok(None);
@@ -490,11 +503,12 @@ fn run_integrity(
     sfc: impl FnOnce() -> Result<i32, ProbeError>,
     dism: impl FnOnce() -> Result<i32, ProbeError>,
 ) -> Result<IntegrityResult, ProbeError> {
-    let sfc = sfc()?;
-    if sfc == 1 {
-        return Ok(IntegrityResult::CorruptionFound);
+    match sfc()? {
+        1 => Ok(IntegrityResult::CorruptionFound),
+        0 => interpret_integrity(0, dism()?),
+        // Unknown SFC code: inconclusive, do not spend minutes on DISM.
+        other => interpret_integrity(other, 0),
     }
-    interpret_integrity(sfc, dism()?)
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -1101,6 +1115,21 @@ mod tests {
         assert_eq!(map_evt_error(15007), Ok(None)); // channel not found
         assert!(map_evt_error(1223).is_err());
         assert!(map_evt_error(0).is_err());
+        assert_eq!(map_evt_error(0x8007_0005), Ok(None)); // HRESULT_FROM_WIN32(5)
+        assert_eq!(map_evt_error(0x8007_3A9F), Ok(None)); // HRESULT_FROM_WIN32(15007)
+        assert!(map_evt_error(0x8004_0005).is_err()); // not the Win32 facility
+        assert!(map_evt_error(0x8004_3A9F).is_err());
+    }
+
+    #[test]
+    fn sfc_unknown_code_does_not_run_dism() {
+        let calls = std::cell::Cell::new(0);
+        let dism = || {
+            calls.set(calls.get() + 1);
+            Ok(0)
+        };
+        assert!(run_integrity(|| Ok(2), dism).is_err());
+        assert_eq!(calls.get(), 0);
     }
 
     #[test]
