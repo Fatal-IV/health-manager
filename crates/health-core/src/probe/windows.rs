@@ -10,6 +10,7 @@ const DRIVE_UNKNOWN: u32 = 0;
 const DRIVE_NO_ROOT_DIR: u32 = 1;
 const DRIVE_REMOVABLE: u32 = 2;
 const DRIVE_CDROM: u32 = 5;
+const DRIVE_REMOTE: u32 = 4;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowsProbe;
@@ -55,7 +56,8 @@ impl SystemProbe for WindowsProbe {
             let mount = format!("{}:", (b'A' + i as u8) as char);
             let root = HSTRING::from(format!("{mount}\\"));
             let kind = unsafe { GetDriveTypeW(PCWSTR(root.as_ptr())) };
-            if kind == DRIVE_UNKNOWN || kind == DRIVE_NO_ROOT_DIR {
+            // A disconnected network share can block GetDiskFreeSpaceExW, so skip remote drives.
+            if kind == DRIVE_UNKNOWN || kind == DRIVE_NO_ROOT_DIR || kind == DRIVE_REMOTE {
                 continue;
             }
             let (mut free, mut total) = (0u64, 0u64);

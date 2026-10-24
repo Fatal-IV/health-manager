@@ -3,19 +3,19 @@
   "issue": {
     "storage": {
       "disk_full": {
-        "title": "Diskte boş yer azalıyor",
-        "why": "Diskiniz neredeyse dolu. Boş yer azaldığında bilgisayar yavaşlar, güncellemeler yüklenemez ve yeni dosyalar kaydedilemeyebilir. Gereksiz dosyaları silmek veya taşımak iyi olur."
+        "title": "{{drive}} sürücüsünde boş yer azalıyor",
+        "why": "Sürücünüzün %{{percent}} kadarı dolu, yalnızca {{free_gb}} GB boş yer kaldı. Boş yer azaldığında bilgisayar yavaşlar, güncellemeler yüklenemez ve yeni dosyalar kaydedilemeyebilir. Gereksiz dosyaları silmek veya taşımak iyi olur."
       },
       "temp_files": {
-        "title": "Geçici dosyalar çok yer kaplıyor",
+        "title": "Geçici dosyalar {{size_gb}} GB yer kaplıyor",
         "why": "Programlar çalışırken geçici dosyalar bırakır ve bunlar zamanla birikir. Güvenle silinebilirler; silmek diskinizde yer açar."
       },
       "recycle_bin": {
-        "title": "Geri dönüşüm kutusu dolu",
+        "title": "Geri dönüşüm kutusunda {{size_gb}} GB var",
         "why": "Sildiğiniz dosyalar geri dönüşüm kutusunda yer kaplamaya devam eder. Kutuyu boşaltırsanız bu alan geri kazanılır."
       },
       "update_leftovers": {
-        "title": "Eski Windows güncelleme dosyaları duruyor",
+        "title": "Eski güncelleme dosyaları {{size_gb}} GB yer kaplıyor",
         "why": "Windows güncellemelerinden geriye kalan dosyalar gereksiz yer kaplıyor. Temizlemek güncellemelerinizi etkilemez ve disk alanı açar."
       }
     }

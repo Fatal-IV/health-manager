@@ -1,6 +1,7 @@
 use crate::engine::Check;
 use crate::model::{Category, Issue, Status};
 use crate::probe::{ProbeError, SystemProbe};
+use std::collections::BTreeMap;
 
 const GIB: u64 = 1024 * 1024 * 1024;
 /// Disk usage (percent) at or above which a disk is Critical / Warning.
@@ -12,6 +13,10 @@ const TEMP_WARN_BYTES: u64 = GIB;
 /// The brief gives no number for these; this is a controller ruling.
 const RECYCLE_WARN_BYTES: u64 = GIB;
 const UPDATE_LEFTOVERS_WARN_BYTES: u64 = GIB;
+
+fn gb_param(bytes: u64) -> String {
+    format!("{:.1}", bytes as f64 / GIB as f64)
+}
 
 fn gib_text(bytes: u64) -> String {
     format!("{:.1} GB", bytes as f64 / GIB as f64)
@@ -65,6 +70,12 @@ impl Check for DiskSpaceCheck {
                     gib_text(free),
                     gib_text(d.total_bytes)
                 ),
+                params: BTreeMap::from([
+                    ("drive".to_string(), d.mount.clone()),
+                    ("percent".to_string(), pct.to_string()),
+                    ("free_gb".to_string(), gb_param(free)),
+                    ("total_gb".to_string(), gb_param(d.total_bytes)),
+                ]),
                 fix: None,
             });
         }
@@ -83,6 +94,7 @@ fn size_issue(id: &str, key: &str, bytes: u64, threshold: u64, fix: &str) -> Vec
         title_key: format!("issue.storage.{key}.title"),
         why_key: format!("issue.storage.{key}.why"),
         evidence: gib_text(bytes),
+        params: BTreeMap::from([("size_gb".to_string(), gb_param(bytes))]),
         fix: Some(fix.into()),
     }]
 }
@@ -170,6 +182,10 @@ mod tests {
         assert_eq!(issues[0].status, Status::Critical);
         assert_eq!(issues[0].category, Category::Storage);
         assert!(issues[0].evidence.contains("C:"));
+        assert_eq!(issues[0].params["drive"], "C:");
+        assert_eq!(issues[0].params["percent"], "95");
+        assert_eq!(issues[0].params["free_gb"], "5.0");
+        assert_eq!(issues[0].params["total_gb"], "100.0");
     }
 
     #[test]
@@ -178,6 +194,29 @@ mod tests {
         let issues = DiskSpaceCheck.scan(&p).unwrap();
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].status, Status::Warning);
+    }
+
+    fn status_for_free(free_gib: u64) -> Option<Status> {
+        let p = probe_with(vec![disk("C:", 100 * GIB, free_gib * GIB, false)]);
+        DiskSpaceCheck.scan(&p).unwrap().first().map(|i| i.status)
+    }
+
+    #[test]
+    fn disk_thresholds_are_exact_at_boundaries() {
+        assert_eq!(status_for_free(20), Some(Status::Warning)); // exactly 80%
+        assert_eq!(status_for_free(21), None); // 79%
+        assert_eq!(status_for_free(10), Some(Status::Critical)); // exactly 90%
+        assert_eq!(status_for_free(11), Some(Status::Warning)); // 89%
+    }
+
+    #[test]
+    fn size_issues_carry_size_param() {
+        let p = FakeProbe {
+            temp_bytes: 2 * GIB,
+            ..Default::default()
+        };
+        let issues = TempFilesCheck.scan(&p).unwrap();
+        assert_eq!(issues[0].params["size_gb"], "2.0");
     }
 
     #[test]

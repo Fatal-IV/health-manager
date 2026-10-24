@@ -50,6 +50,7 @@ mod tests {
             title_key: format!("{id}.title"),
             why_key: format!("{id}.why"),
             evidence: String::new(),
+            params: Default::default(),
             fix: None,
         }
     }
