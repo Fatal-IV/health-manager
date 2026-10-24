@@ -160,6 +160,22 @@ fn av_state_on(product_state: u32) -> bool {
     (product_state >> 12) & 0xF == 1
 }
 
+const WMI_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Runs `f` on a helper thread and waits at most `dur`. On timeout the thread is
+/// leaked (it cannot be cancelled) and keeps running until its call returns.
+fn run_with_timeout<T: Send + 'static>(
+    dur: Duration,
+    f: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, ProbeError> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(f());
+    });
+    rx.recv_timeout(dur)
+        .map_err(|_| ProbeError::Unavailable("WMI timed out".into()))
+}
+
 /// True when a non-Defender antivirus is registered and switched on.
 fn third_party_av_active() -> Result<bool, ProbeError> {
     let wmi_err = |e: wmi::WMIError| ProbeError::Unavailable(format!("wmi securitycenter: {e}"));
@@ -462,27 +478,32 @@ impl SystemProbe for WindowsProbe {
         })
     }
 
-    /// Last successful update. Order: registry `LastSuccessTime` (UTC string;
-    /// often absent or stale on Windows 10/11), then the WUA update history.
     fn defender(&self) -> Result<DefenderState, ProbeError> {
-        let _com = ComGuard::new();
-        match wmi_defender() {
-            Ok((realtime, signature_age_days)) => Ok(DefenderState {
-                realtime,
-                signature_age_days,
-                // Only relevant when Defender is off; skip the extra query otherwise.
-                third_party_av: !realtime && third_party_av_active().unwrap_or(false),
-            }),
-            // Defender's WMI provider is absent when another AV replaced it.
-            Err(e) => match third_party_av_active() {
-                Ok(true) => Ok(DefenderState {
-                    realtime: false,
-                    signature_age_days: 0,
-                    third_party_av: true,
+        // WMI can hang (infinite enumerator timeout), so run all of it off-thread.
+        run_with_timeout(WMI_TIMEOUT, || {
+            let _com = ComGuard::new(); // COM is per-thread: init inside this thread
+            match wmi_defender() {
+                Ok((realtime, signature_age_days)) => Ok(DefenderState {
+                    realtime,
+                    signature_age_days,
+                    // Only relevant when Defender is off; `None` = query failed.
+                    third_party_av: if realtime {
+                        Some(false)
+                    } else {
+                        third_party_av_active().ok()
+                    },
                 }),
-                _ => Err(e),
-            },
-        }
+                // Defender's WMI provider is absent when another AV replaced it.
+                Err(e) => match third_party_av_active() {
+                    Ok(true) => Ok(DefenderState {
+                        realtime: false,
+                        signature_age_days: 0,
+                        third_party_av: Some(true),
+                    }),
+                    _ => Err(e),
+                },
+            }
+        })?
     }
 
     fn firewall_enabled(&self) -> Result<bool, ProbeError> {
@@ -518,6 +539,8 @@ impl SystemProbe for WindowsProbe {
         Ok(uac_from_values(lua, consent))
     }
 
+    /// Last successful update. Order: registry `LastSuccessTime` (UTC string;
+    /// often absent or stale on Windows 10/11), then the WUA update history.
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
         choose_last_update(registry_last_success(), wua_last_success)
     }
@@ -724,5 +747,16 @@ mod tests {
             Ok(_) | Err(ProbeError::Unavailable(_)) => {}
             Err(e) => panic!("unexpected: {e}"),
         }
+    }
+
+    #[test]
+    fn run_with_timeout_returns_value_or_times_out() {
+        let d = Duration::from_millis(50);
+        assert_eq!(run_with_timeout(d, || 7), Ok(7));
+        let slow = run_with_timeout(d, || {
+            std::thread::sleep(Duration::from_millis(500));
+            1
+        });
+        assert_eq!(slow, Err(ProbeError::Unavailable("WMI timed out".into())));
     }
 }

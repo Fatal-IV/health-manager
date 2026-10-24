@@ -42,15 +42,32 @@ impl Check for DefenderCheck {
         if !d.realtime {
             // Another antivirus is in charge: Defender being off is expected, but we
             // cannot vouch for that product, so the result is Unknown (not Critical).
-            if d.third_party_av {
-                return Ok(vec![issue(
-                    "security.defender_third_party",
-                    "defender_third_party",
-                    Status::Unknown,
-                    "real-time protection off; another antivirus is registered".into(),
-                    BTreeMap::new(),
-                    None,
-                )]);
+            match d.third_party_av {
+                // Another antivirus is in charge: Defender being off is expected, but
+                // we cannot vouch for that product, so Unknown (not Critical).
+                Some(true) => {
+                    return Ok(vec![issue(
+                        "security.defender_third_party",
+                        "defender_third_party",
+                        Status::Unknown,
+                        "real-time protection off; another antivirus is registered".into(),
+                        BTreeMap::new(),
+                        None,
+                    )]);
+                }
+                // Could not tell whether another AV is in charge: never Critical on
+                // unknown facts.
+                None => {
+                    return Ok(vec![issue(
+                        "security.defender_unknown",
+                        "defender_unknown",
+                        Status::Unknown,
+                        "real-time protection off; antivirus products could not be read".into(),
+                        BTreeMap::new(),
+                        None,
+                    )]);
+                }
+                Some(false) => {}
             }
             return Ok(vec![issue(
                 "security.defender_realtime",
@@ -128,7 +145,7 @@ mod tests {
     use crate::probe::fake::FakeProbe;
     use crate::probe::DefenderState;
 
-    fn def(realtime: bool, age: u32, third: bool) -> FakeProbe {
+    fn def(realtime: bool, age: u32, third: Option<bool>) -> FakeProbe {
         FakeProbe {
             defender: Some(DefenderState {
                 realtime,
@@ -144,13 +161,19 @@ mod tests {
 
     #[test]
     fn healthy_defender_has_no_issues() {
-        assert!(DefenderCheck.scan(&def(true, 0, false)).unwrap().is_empty());
-        assert!(DefenderCheck.scan(&def(true, 7, false)).unwrap().is_empty());
+        assert!(DefenderCheck
+            .scan(&def(true, 0, Some(false)))
+            .unwrap()
+            .is_empty());
+        assert!(DefenderCheck
+            .scan(&def(true, 7, Some(false)))
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
     fn realtime_off_is_critical() {
-        let i = DefenderCheck.scan(&def(false, 0, false)).unwrap();
+        let i = DefenderCheck.scan(&def(false, 0, Some(false))).unwrap();
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Critical);
         assert_eq!(i[0].category, Category::Security);
@@ -161,8 +184,11 @@ mod tests {
     #[test]
     fn signatures_older_than_7_days_is_warning() {
         // Boundary: exactly 7 days is fine, 8 days warns.
-        assert!(DefenderCheck.scan(&def(true, 7, false)).unwrap().is_empty());
-        let i = DefenderCheck.scan(&def(true, 8, false)).unwrap();
+        assert!(DefenderCheck
+            .scan(&def(true, 7, Some(false)))
+            .unwrap()
+            .is_empty());
+        let i = DefenderCheck.scan(&def(true, 8, Some(false))).unwrap();
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Warning);
         assert_eq!(i[0].params["days"], "8");
@@ -171,18 +197,40 @@ mod tests {
 
     #[test]
     fn realtime_off_and_old_signatures_report_only_critical() {
-        let i = DefenderCheck.scan(&def(false, 30, false)).unwrap();
+        let i = DefenderCheck.scan(&def(false, 30, Some(false))).unwrap();
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Critical);
     }
 
     #[test]
     fn third_party_av_makes_defender_check_unknown_not_critical() {
-        let i = DefenderCheck.scan(&def(false, 90, true)).unwrap();
+        let i = DefenderCheck.scan(&def(false, 90, Some(true))).unwrap();
         assert_eq!(i.len(), 1);
         assert_eq!(i[0].status, Status::Unknown);
         assert_eq!(i[0].id, "security.defender_third_party");
         assert_eq!(i[0].fix, None);
+    }
+
+    #[test]
+    fn realtime_off_with_unknown_third_party_is_unknown_not_critical() {
+        let i = DefenderCheck.scan(&def(false, 0, None)).unwrap();
+        assert_eq!(i.len(), 1);
+        assert_eq!(i[0].status, Status::Unknown);
+        assert_eq!(i[0].id, "security.defender_unknown");
+        assert_eq!(i[0].fix, None);
+    }
+
+    #[test]
+    fn realtime_on_with_unknown_third_party_is_fine() {
+        assert!(DefenderCheck.scan(&def(true, 0, None)).unwrap().is_empty());
+    }
+
+    #[test]
+    fn default_probe_firewall_is_healthy() {
+        assert!(FirewallCheck
+            .scan(&FakeProbe::default())
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -197,7 +245,7 @@ mod tests {
     #[test]
     fn firewall_disabled_is_critical() {
         let p = FakeProbe {
-            firewall: false,
+            firewall: Some(false),
             ..Default::default()
         };
         let i = FirewallCheck.scan(&p).unwrap();
@@ -209,7 +257,7 @@ mod tests {
     #[test]
     fn firewall_enabled_and_error() {
         let on = FakeProbe {
-            firewall: true,
+            firewall: Some(true),
             ..Default::default()
         };
         assert!(FirewallCheck.scan(&on).unwrap().is_empty());

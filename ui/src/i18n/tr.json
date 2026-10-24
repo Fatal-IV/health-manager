@@ -54,6 +54,10 @@
         "title": "Virüs tanımları {{days}} gündür güncellenmedi",
         "why": "Virüs tanımları {{days}} gün öncesine ait. Eski tanımlarla yeni zararlı yazılımlar tanınmayabilir. İnternete bağlıyken Windows Güvenliği'nden güncelleme yapın."
       },
+      "defender_unknown": {
+        "title": "Virüs koruması durumu okunamadı",
+        "why": "Windows Defender'ın anlık koruması kapalı görünüyor, ancak bilgisayarda başka bir virüs koruma programı olup olmadığını okuyamadık. Bu yüzden bir sorun olup olmadığını söyleyemiyoruz. Lütfen Windows Güvenliği ekranından korumanın açık olduğunu kontrol edin."
+      },
       "defender_third_party": {
         "title": "Virüs koruması durumu doğrulanamadı",
         "why": "Bilgisayarda başka bir virüs koruma programı var, bu yüzden Windows Defender kapalı. Bu normaldir; ancak o programın açık ve güncel olduğunu buradan denetleyemiyoruz. Lütfen programı kendi ekranından kontrol edin."

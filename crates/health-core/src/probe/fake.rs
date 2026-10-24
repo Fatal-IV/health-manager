@@ -34,7 +34,8 @@ pub struct FakeProbe {
     /// `None` = healthy, up-to-date Defender.
     pub defender: Option<DefenderState>,
     pub defender_error: Option<ProbeError>,
-    pub firewall: bool,
+    /// `None` = enabled.
+    pub firewall: Option<bool>,
     pub firewall_error: Option<ProbeError>,
     /// `None` = `UacLevel::Enabled`.
     pub uac: Option<UacLevel>,
@@ -99,12 +100,12 @@ impl SystemProbe for FakeProbe {
             self.defender.unwrap_or(DefenderState {
                 realtime: true,
                 signature_age_days: 0,
-                third_party_av: false,
+                third_party_av: Some(false),
             }),
         )
     }
     fn firewall_enabled(&self) -> Result<bool, ProbeError> {
-        pick(&self.firewall_error, self.firewall)
+        pick(&self.firewall_error, self.firewall.unwrap_or(true))
     }
     fn uac_level(&self) -> Result<UacLevel, ProbeError> {
         pick(&self.uac_error, self.uac.unwrap_or(UacLevel::Enabled))

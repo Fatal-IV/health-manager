@@ -55,14 +55,14 @@ pub enum ServiceState {
     Missing,
 }
 
-/// Windows Defender state. `third_party_av` is true when another antivirus is
-/// registered and active; Defender is then normally switched off on purpose, so
+/// Windows Defender state. `third_party_av` is `Some(true)` when another antivirus is
+/// registered and active, `None` when that could not be determined; Defender is then normally switched off on purpose, so
 /// `realtime == false` must not be read as unprotected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DefenderState {
     pub realtime: bool,
     pub signature_age_days: u32,
-    pub third_party_av: bool,
+    pub third_party_av: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
