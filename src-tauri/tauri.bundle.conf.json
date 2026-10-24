@@ -1,0 +1,8 @@
+{
+  "build": {
+    "beforeBuildCommand": "node ../scripts/prepare-helper.mjs && npm --prefix ../ui run build"
+  },
+  "bundle": {
+    "externalBin": ["binaries/fix-helper"]
+  }
+}

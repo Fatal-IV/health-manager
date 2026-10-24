@@ -469,6 +469,50 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// Whole path without a window: scan, preview, confirm, apply, re-scan, report.
+    #[test]
+    fn scan_fix_verify_flow() {
+        let before = FakeProbe { temp_bytes: 2 * GIB, ..Default::default() };
+        let st = AppState::default();
+        let first = scan_and_store(&st, &before, ScanMode::Quick, &|_| {}, UNIX_EPOCH).unwrap();
+        let issue = first
+            .results
+            .iter()
+            .flat_map(|r| &r.issues)
+            .find(|i| i.fix == Some(FixId::CleanTemp))
+            .expect("temp files issue is visible");
+
+        // preview comes first and is built only from the issue's fix id
+        let plan = plan_for(issue.fix.unwrap().as_str(), None).unwrap();
+        assert!(!plan.changes.is_empty() && !plan.needs_admin);
+
+        // the helper "cleans" the folder: the next probe reading sees it empty
+        let after = FakeProbe::default();
+        let r = apply_and_verify(
+            &|_, _| ok(), &all_checks(), &after, &st.session, "clean_temp", None,
+            UNIX_EPOCH + std::time::Duration::from_secs(120),
+        )
+        .unwrap();
+        assert!(r.verified);
+        assert!(r.report.as_ref().unwrap().score.value > first.score.value);
+
+        // the exported report lists the fix as applied and no longer lists the issue
+        let dir = std::env::temp_dir().join("Mini Yönetim Uygulaması e2e");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("rapor.txt");
+        export(&st.session, ReportFormat::Text, path.to_str().unwrap()).unwrap();
+        let text = String::from_utf8(std::fs::read(&path).unwrap()[3..].to_vec()).unwrap();
+        assert!(text.contains(&health_core::report::translate("fix.clean_temp.summary")));
+        assert!(text.contains(&health_core::report::translate("report.outcome.applied")));
+        let title = health_core::report::translate("issue.storage.temp_files.title");
+        // the part after the placeholder is unique to the issue title; the part before
+        // ("Geçici dosyalar") also starts the fix summary ("Geçici dosyaları temizle")
+        let stem = title.rsplit("}}").next().unwrap().trim();
+        assert!(stem.chars().count() >= 8, "stem must be distinctive: {title}");
+        assert!(!text.contains(stem), "the fixed issue must not be listed any more");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn plan_for_returns_the_preview_for_valid_requests_only() {
         let plan = plan_for("reset_windows_update", None).unwrap();
