@@ -1,1 +1,23 @@
-{ "app": { "title": "Sağlık Denetimi" } }
+{
+  "app": { "title": "Sağlık Denetimi" },
+  "issue": {
+    "storage": {
+      "disk_full": {
+        "title": "Diskte boş yer azalıyor",
+        "why": "Diskiniz neredeyse dolu. Boş yer azaldığında bilgisayar yavaşlar, güncellemeler yüklenemez ve yeni dosyalar kaydedilemeyebilir. Gereksiz dosyaları silmek veya taşımak iyi olur."
+      },
+      "temp_files": {
+        "title": "Geçici dosyalar çok yer kaplıyor",
+        "why": "Programlar çalışırken geçici dosyalar bırakır ve bunlar zamanla birikir. Güvenle silinebilirler; silmek diskinizde yer açar."
+      },
+      "recycle_bin": {
+        "title": "Geri dönüşüm kutusu dolu",
+        "why": "Sildiğiniz dosyalar geri dönüşüm kutusunda yer kaplamaya devam eder. Kutuyu boşaltırsanız bu alan geri kazanılır."
+      },
+      "update_leftovers": {
+        "title": "Eski Windows güncelleme dosyaları duruyor",
+        "why": "Windows güncellemelerinden geriye kalan dosyalar gereksiz yer kaplıyor. Temizlemek güncellemelerinizi etkilemez ve disk alanı açar."
+      }
+    }
+  }
+}
