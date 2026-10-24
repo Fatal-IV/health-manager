@@ -13,8 +13,9 @@ pub enum FixId {
     CleanUpdateLeftovers,
     /// Arg: startup id `HKCU|name` / `HKLM|name`. Helper contract: the value
     /// is DATA only; re-enumerate the real Run entries (64-bit and 32-bit
-    /// registry views) and act only on an exact id match. Never build a registry path, file path
-    /// or command line from it, and never pass it to a shell.
+    /// registry views) and act only on an exact id match. Never build a
+    /// registry path, file path or command line from it, and never pass it
+    /// to a shell.
     DisableStartupItem,
     /// Arg: numeric pid. Helper contract: refuse protected/critical processes
     /// and verify the pid still maps to a running process (Task 10).
@@ -39,7 +40,8 @@ impl FixId {
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
-    /// given an index here, which the completeness test checks against `ALL`.
+    /// given an index here. The tests check that `ALL` is in index order and
+    /// contains every variant of an independent exhaustive list.
     pub const fn index(self) -> usize {
         match self {
             FixId::CleanTemp => 0,
@@ -256,13 +258,64 @@ mod tests {
         f.takes_arg()
     }
 
+    /// Exhaustive, no wildcard: adding a variant breaks this match, forcing
+    /// `expected_variants` below to be updated too.
+    fn witness(f: FixId) -> FixId {
+        match f {
+            FixId::CleanTemp => FixId::CleanTemp,
+            FixId::EmptyRecycleBin => FixId::EmptyRecycleBin,
+            FixId::CleanUpdateLeftovers => FixId::CleanUpdateLeftovers,
+            FixId::DisableStartupItem => FixId::DisableStartupItem,
+            FixId::EndProcess => FixId::EndProcess,
+            FixId::ResetWindowsUpdate => FixId::ResetWindowsUpdate,
+            FixId::EnableDefenderRealtime => FixId::EnableDefenderRealtime,
+            FixId::EnableFirewall => FixId::EnableFirewall,
+            FixId::RunSfcDism => FixId::RunSfcDism,
+        }
+    }
+
+    /// Hand-written list, independent of `FixId::ALL`.
+    fn expected_variants() -> Vec<FixId> {
+        [
+            FixId::CleanTemp,
+            FixId::EmptyRecycleBin,
+            FixId::CleanUpdateLeftovers,
+            FixId::DisableStartupItem,
+            FixId::EndProcess,
+            FixId::ResetWindowsUpdate,
+            FixId::EnableDefenderRealtime,
+            FixId::EnableFirewall,
+            FixId::RunSfcDism,
+        ]
+        .into_iter()
+        .map(witness)
+        .collect()
+    }
+
+    fn missing_from(all: &[FixId], expected: &[FixId]) -> Vec<FixId> {
+        expected
+            .iter()
+            .copied()
+            .filter(|e| !all.contains(e))
+            .collect()
+    }
+
     #[test]
     fn all_is_complete_and_distinct() {
-        let max = FixId::ALL.iter().map(|f| f.index()).max().unwrap();
-        assert_eq!(FixId::ALL.len(), max + 1);
+        let expected = expected_variants();
+        assert_eq!(missing_from(&FixId::ALL, &expected), vec![]);
+        assert_eq!(FixId::ALL.len(), expected.len());
         for (i, f) in FixId::ALL.iter().enumerate() {
             assert_eq!(f.index(), i, "{f:?} out of order or duplicated");
         }
+    }
+
+    #[test]
+    fn missing_from_detects_a_removed_entry() {
+        let expected = expected_variants();
+        let mut all = FixId::ALL.to_vec();
+        all.retain(|f| *f != FixId::RunSfcDism);
+        assert_eq!(missing_from(&all, &expected), vec![FixId::RunSfcDism]);
     }
 
     #[test]
