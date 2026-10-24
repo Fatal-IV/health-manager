@@ -109,6 +109,15 @@
     }
   },
   "fix": {
+    "result": {
+      "ok": "Düzeltme uygulandı.",
+      "declined": "Yapılmadı, hiçbir değişiklik uygulanmadı.",
+      "invalid": "İstek geçersiz olduğu için hiçbir şey yapılmadı.",
+      "not_elevated": "Bu düzeltme yönetici izni gerektiriyor. Hiçbir değişiklik yapılmadı.",
+      "item_not_found": "Bu başlangıç programı artık bulunamadı. Daha önce kaldırılmış olabilir.",
+      "not_available": "Bu düzeltme bu sürümde henüz kullanılamıyor. Hiçbir değişiklik yapılmadı.",
+      "failed": "Düzeltme yapılamadı. Teknik ayrıntılar \"Ayrıntılar\" bölümünde."
+    },
     "clean_temp": {
       "summary": "Geçici dosyaları temizle",
       "change": {
