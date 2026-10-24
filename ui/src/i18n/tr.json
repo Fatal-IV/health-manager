@@ -116,6 +116,9 @@
       "not_elevated": "Bu düzeltme yönetici izni gerektiriyor. Hiçbir değişiklik yapılmadı.",
       "item_not_found": "Bu başlangıç programı artık bulunamadı. Daha önce kaldırılmış olabilir.",
       "not_available": "Bu düzeltme bu sürümde henüz kullanılamıyor. Hiçbir değişiklik yapılmadı.",
+      "helper_missing": "Düzeltme aracı bulunamadı. Uygulamayı yeniden kurmayı deneyin. Hiçbir değişiklik yapılmadı.",
+      "invalid_argument": "İstek geçersiz olduğu için hiçbir şey yapılmadı.",
+      "timeout": "Düzeltme beklenen sürede tamamlanmadı. Sonucu kontrol etmek için denetimi yeniden çalıştırın.",
       "failed": "Düzeltme yapılamadı. Teknik ayrıntılar \"Ayrıntılar\" bölümünde.",
       "temp_unsupported": "Bu bilgisayarda geçici dosyalar için özel bir klasör kullanılıyor. Güvenlik için bu klasör temizlenmez; hiçbir dosya silinmedi."
     },

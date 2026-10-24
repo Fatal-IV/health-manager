@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod elevate;
+
 #[tauri::command]
 fn app_version() -> String {
     health_core::version().to_string()
