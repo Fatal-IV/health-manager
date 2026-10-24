@@ -1,9 +1,14 @@
 //! Real Windows implementation of [`SystemProbe`].
 
-use super::{DiskInfo, ProbeError, SystemProbe};
+use super::{DiskInfo, Impact, ProbeError, ProcInfo, StartupItem, SystemProbe};
 use std::path::{Path, PathBuf};
 use windows::core::{HSTRING, PCWSTR};
+use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives};
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegEnumValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
+    KEY_READ,
+};
 use windows::Win32::UI::Shell::{SHQueryRecycleBinW, SHQUERYRBINFO};
 
 const DRIVE_UNKNOWN: u32 = 0;
@@ -40,6 +45,39 @@ fn dir_size(path: &Path) -> u64 {
         }
     }
     total
+}
+
+/// Names of the values under a registry key; a missing key yields an empty list.
+fn registry_value_names(root: HKEY, subkey: &str) -> Vec<String> {
+    let sub = HSTRING::from(subkey);
+    let mut key = HKEY::default();
+    if unsafe { RegOpenKeyExW(root, PCWSTR(sub.as_ptr()), 0, KEY_READ, &mut key) } != ERROR_SUCCESS
+    {
+        return Vec::new();
+    }
+    let mut names = Vec::new();
+    for index in 0u32.. {
+        let mut buf = [0u16; 16384];
+        let mut len = buf.len() as u32;
+        let rc = unsafe {
+            RegEnumValueW(
+                key,
+                index,
+                windows::core::PWSTR(buf.as_mut_ptr()),
+                &mut len,
+                None,
+                None,
+                None,
+                None,
+            )
+        };
+        if rc != ERROR_SUCCESS {
+            break;
+        }
+        names.push(String::from_utf16_lossy(&buf[..len as usize]));
+    }
+    let _ = unsafe { RegCloseKey(key) };
+    names
 }
 
 impl SystemProbe for WindowsProbe {
@@ -104,6 +142,58 @@ impl SystemProbe for WindowsProbe {
             .join("SoftwareDistribution")
             .join("Download");
         Ok(dir_size(&p))
+    }
+
+    fn cpu_percent(&self) -> Result<f32, ProbeError> {
+        // CPU usage needs two samples; the first refresh only sets a baseline.
+        let mut sys = sysinfo::System::new();
+        sys.refresh_cpu_usage();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        sys.refresh_cpu_usage();
+        Ok(sys.global_cpu_usage())
+    }
+
+    fn ram_usage(&self) -> Result<(u64, u64), ProbeError> {
+        let mut sys = sysinfo::System::new();
+        sys.refresh_memory();
+        Ok((sys.used_memory(), sys.total_memory()))
+    }
+
+    fn top_processes(&self, n: usize) -> Result<Vec<ProcInfo>, ProbeError> {
+        let mut sys = sysinfo::System::new();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        let mut v: Vec<ProcInfo> = sys
+            .processes()
+            .values()
+            .map(|p| ProcInfo {
+                pid: p.pid().as_u32(),
+                name: p.name().to_string_lossy().into_owned(),
+                cpu: p.cpu_usage(),
+                ram_bytes: p.memory(),
+            })
+            .collect();
+        v.sort_by(|a, b| b.cpu.total_cmp(&a.cpu).then(b.ram_bytes.cmp(&a.ram_bytes)));
+        v.truncate(n);
+        Ok(v)
+    }
+
+    fn startup_items(&self) -> Result<Vec<StartupItem>, ProbeError> {
+        const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+        let mut out = Vec::new();
+        for (root, label) in [(HKEY_CURRENT_USER, "HKCU"), (HKEY_LOCAL_MACHINE, "HKLM")] {
+            for name in registry_value_names(root, RUN) {
+                out.push(StartupItem {
+                    id: format!("{label}|{name}"),
+                    // No cheap reliable impact measure exists (it would need boot
+                    // trace data), so every registry Run entry is rated Medium.
+                    impact: Impact::Medium,
+                    name,
+                });
+            }
+        }
+        Ok(out)
     }
 }
 

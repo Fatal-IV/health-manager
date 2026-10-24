@@ -1,3 +1,4 @@
+pub mod performance;
 pub mod storage;
 
 pub use crate::engine::Check;
@@ -9,5 +10,8 @@ pub fn all_checks() -> Vec<Box<dyn Check>> {
         Box::new(storage::TempFilesCheck),
         Box::new(storage::RecycleBinCheck),
         Box::new(storage::UpdateLeftoversCheck),
+        Box::new(performance::CpuRamCheck),
+        Box::new(performance::TopProcessesCheck),
+        Box::new(performance::StartupItemsCheck),
     ]
 }

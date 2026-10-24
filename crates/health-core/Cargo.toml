@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
 thiserror = "1"
 
 [features]
@@ -14,5 +15,6 @@ testing = []
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
+    "Win32_System_Registry",
     "Win32_UI_Shell",
 ] }
