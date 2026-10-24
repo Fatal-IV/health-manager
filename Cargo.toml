@@ -1,0 +1,3 @@
+[workspace]
+resolver = "2"
+members = ["crates/health-core", "crates/fix-helper", "src-tauri"]
