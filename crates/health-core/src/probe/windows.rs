@@ -9,7 +9,7 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::Storage::FileSystem::{GetDiskFreeSpaceExW, GetDriveTypeW, GetLogicalDrives};
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
+    CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED,
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumValueW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
@@ -20,7 +20,7 @@ use windows::Win32::System::Services::{
     QUERY_SERVICE_CONFIGW, SC_HANDLE, SC_MANAGER_CONNECT, SERVICE_DISABLED, SERVICE_QUERY_CONFIG,
     SERVICE_QUERY_STATUS, SERVICE_RUNNING, SERVICE_STATUS,
 };
-use windows::Win32::System::UpdateAgent::{IUpdateSession, UpdateSession};
+use windows::Win32::System::UpdateAgent::{orcSucceeded, IUpdateSession, UpdateSession};
 use windows::Win32::UI::Shell::{SHQueryRecycleBinW, SHQUERYRBINFO};
 
 const DRIVE_UNKNOWN: u32 = 0;
@@ -28,6 +28,57 @@ const DRIVE_NO_ROOT_DIR: u32 = 1;
 const DRIVE_REMOVABLE: u32 = 2;
 const DRIVE_CDROM: u32 = 5;
 const DRIVE_REMOTE: u32 = 4;
+
+/// Pairs `CoInitializeEx` with `CoUninitialize`. Declare it first in a function so
+/// it drops after every COM object created later. S_OK and S_FALSE both add a
+/// reference that must be released; RPC_E_CHANGED_MODE means COM is already
+/// usable in another apartment and must not be uninitialized.
+struct ComGuard(bool);
+
+impl ComGuard {
+    fn new() -> Self {
+        let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+        ComGuard(hr.is_ok())
+    }
+}
+
+impl Drop for ComGuard {
+    fn drop(&mut self) {
+        if self.0 {
+            unsafe { CoUninitialize() };
+        }
+    }
+}
+
+fn unavailable(e: windows::core::Error) -> ProbeError {
+    ProbeError::Unavailable(e.to_string())
+}
+
+/// Newest successful install in the WUA history (local, no network).
+fn wua_last_success() -> Result<Option<SystemTime>, ProbeError> {
+    let _com = ComGuard::new();
+    let session: IUpdateSession =
+        unsafe { CoCreateInstance(&UpdateSession, None, CLSCTX_INPROC_SERVER) }
+            .map_err(unavailable)?;
+    let searcher = unsafe { session.CreateUpdateSearcher() }.map_err(unavailable)?;
+    let history = unsafe { searcher.QueryHistory(0, 200) }.map_err(unavailable)?;
+    let count = unsafe { history.Count() }.map_err(unavailable)?;
+    let mut newest: Option<SystemTime> = None;
+    for i in 0..count {
+        let entry = unsafe { history.get_Item(i) }.map_err(unavailable)?;
+        if unsafe { entry.ResultCode() }.map_err(unavailable)? != orcSucceeded {
+            continue;
+        }
+        // OLE automation date: days since 1899-12-30 (25569 days before the Unix epoch).
+        let date = unsafe { entry.Date() }.map_err(unavailable)?;
+        let secs = (date - 25569.0) * 86_400.0;
+        if secs.is_finite() && secs >= 0.0 {
+            let t = UNIX_EPOCH + Duration::from_secs(secs as u64);
+            newest = Some(newest.map_or(t, |n| n.max(t)));
+        }
+    }
+    Ok(newest)
+}
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowsProbe;
@@ -253,10 +304,7 @@ impl SystemProbe for WindowsProbe {
     /// network and no admin rights. If the cache cannot answer (never scanned,
     /// COM failure) the result is `Unavailable`, never "0 pending".
     fn pending_updates(&self) -> Result<u32, ProbeError> {
-        let unavailable = |e: windows::core::Error| ProbeError::Unavailable(e.to_string());
-        // S_FALSE / RPC_E_CHANGED_MODE just mean COM is already initialized on
-        // this thread; either way it is usable, so the result is ignored.
-        let _ = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
+        let _com = ComGuard::new(); // dropped last, after the COM objects below
         let session: IUpdateSession =
             unsafe { CoCreateInstance(&UpdateSession, None, CLSCTX_INPROC_SERVER) }
                 .map_err(unavailable)?;
@@ -322,58 +370,96 @@ impl SystemProbe for WindowsProbe {
         })
     }
 
-    /// `LastSuccessTime` ("YYYY-MM-DD HH:MM:SS", UTC) under the Windows Update
-    /// Auto Update results. A missing key/value means never installed: `None`.
+    /// Last successful update. Order: registry `LastSuccessTime` (UTC string;
+    /// often absent or stale on Windows 10/11), then the WUA update history.
     fn last_update_success(&self) -> Result<Option<SystemTime>, ProbeError> {
-        let key = HSTRING::from(
-            "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\Results\\Install",
-        );
-        let value = HSTRING::from("LastSuccessTime");
-        let mut buf = [0u16; 64];
-        let mut size = std::mem::size_of_val(&buf) as u32;
-        let rc = unsafe {
-            RegGetValueW(
-                HKEY_LOCAL_MACHINE,
-                PCWSTR(key.as_ptr()),
-                PCWSTR(value.as_ptr()),
-                RRF_RT_REG_SZ,
-                None,
-                Some(buf.as_mut_ptr() as *mut _),
-                Some(&mut size),
-            )
-        };
-        if rc == ERROR_SUCCESS {
-            let chars = (size as usize / 2).min(buf.len());
-            let text = String::from_utf16_lossy(&buf[..chars]);
-            return Ok(parse_utc_timestamp(text.trim_end_matches('\0')));
-        }
-        // 2 = file not found (key or value absent).
-        if rc.0 == 2 {
-            return Ok(None);
-        }
-        Err(ProbeError::Unavailable(format!("registry error {}", rc.0)))
+        choose_last_update(registry_last_success(), wua_last_success)
+    }
+}
+
+/// `LastSuccessTime` ("YYYY-MM-DD HH:MM:SS", UTC) from the Auto Update results.
+/// Absent, unreadable or unparseable all yield `None` (the caller falls back).
+fn registry_last_success() -> Option<SystemTime> {
+    let key = HSTRING::from(
+        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update\\Results\\Install",
+    );
+    let value = HSTRING::from("LastSuccessTime");
+    let mut buf = [0u16; 64];
+    let mut size = std::mem::size_of_val(&buf) as u32;
+    let rc = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(key.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut _),
+            Some(&mut size),
+        )
+    };
+    if rc != ERROR_SUCCESS {
+        return None;
+    }
+    let chars = (size as usize / 2).min(buf.len());
+    let text = String::from_utf16_lossy(&buf[..chars]);
+    parse_utc_timestamp(text.trim_end_matches('\0'))
+}
+
+/// Source order for the last successful update: the registry value wins; if it
+/// is absent or unparseable, fall back to the WUA history. `None` only when
+/// both are empty; a failing history query is an error (Unknown), not "never".
+fn choose_last_update(
+    registry: Option<SystemTime>,
+    history: impl FnOnce() -> Result<Option<SystemTime>, ProbeError>,
+) -> Result<Option<SystemTime>, ProbeError> {
+    match registry {
+        Some(t) => Ok(Some(t)),
+        None => history(),
     }
 }
 
 /// Parses "YYYY-MM-DD HH:MM:SS" (UTC). Unparseable text yields `None`.
 fn parse_utc_timestamp(s: &str) -> Option<SystemTime> {
     let (date, time) = s.trim().split_once(' ')?;
-    let mut d = date.split('-').map(|x| x.parse::<i64>().ok());
-    let (y, m, day) = (d.next()??, d.next()??, d.next()??);
-    let mut t = time.split(':').map(|x| x.parse::<u64>().ok());
-    let (hh, mm, ss) = (t.next()??, t.next()??, t.next()??);
-    if !(1..=12).contains(&m) || !(1..=31).contains(&day) || hh > 23 || mm > 59 || ss > 60 {
+    let mut d = date.split('-');
+    let y: i64 = d.next()?.parse().ok()?;
+    let m: i64 = d.next()?.parse().ok()?;
+    let day: i64 = d.next()?.parse().ok()?;
+    if d.next().is_some() {
         return None;
     }
-    // Days from civil date (Hinnant's algorithm).
-    let y = if m <= 2 { y - 1 } else { y };
+    let mut t = time.split(':');
+    let hh: u64 = t.next()?.parse().ok()?;
+    let mm: u64 = t.next()?.parse().ok()?;
+    let ss: u64 = t.next()?.parse().ok()?;
+    if t.next().is_some() || hh > 23 || mm > 59 || ss > 60 || !(1..=12).contains(&m) {
+        return None;
+    }
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let dim = match m {
+        2 if leap => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    if !(1..=dim).contains(&day) {
+        return None;
+    }
+    // Days from civil date (Hinnant's algorithm), all steps checked.
+    let y = if m <= 2 { y.checked_sub(1)? } else { y };
     let era = y.div_euclid(400);
     let yoe = y - era * 400;
     let doy = (153 * (if m > 2 { m - 3 } else { m + 9 }) + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    let secs = u64::try_from(days).ok()? * 86_400 + hh * 3600 + mm * 60 + ss;
-    Some(UNIX_EPOCH + Duration::from_secs(secs))
+    let days = era
+        .checked_mul(146_097)?
+        .checked_add(doe)?
+        .checked_sub(719_468)?;
+    let secs = u64::try_from(days)
+        .ok()?
+        .checked_mul(86_400)?
+        .checked_add(hh * 3600 + mm * 60 + ss)?;
+    UNIX_EPOCH.checked_add(Duration::from_secs(secs))
 }
 
 #[cfg(test)]
@@ -406,6 +492,53 @@ mod tests {
             Some(UNIX_EPOCH + Duration::from_secs(1_709_296_215))
         );
         assert_eq!(parse_utc_timestamp("garbage"), None);
+    }
+
+    fn ts(secs: u64) -> Option<SystemTime> {
+        Some(UNIX_EPOCH + Duration::from_secs(secs))
+    }
+
+    #[test]
+    fn timestamp_edge_cases() {
+        assert_eq!(parse_utc_timestamp("1970-01-01 00:00:00"), ts(0));
+        assert_eq!(
+            parse_utc_timestamp("2024-02-29 00:00:00"),
+            ts(1_709_164_800)
+        );
+        assert_eq!(parse_utc_timestamp("2023-02-29 00:00:00"), None);
+        assert_eq!(parse_utc_timestamp("2024-02-31 00:00:00"), None);
+        assert_eq!(parse_utc_timestamp("2024-04-31 00:00:00"), None);
+        assert_eq!(
+            parse_utc_timestamp("9223372036854775807-01-01 00:00:00"),
+            None
+        );
+        assert_eq!(
+            parse_utc_timestamp("-9223372036854775807-01-01 00:00:00"),
+            None
+        );
+        assert_eq!(parse_utc_timestamp("1969-12-31 23:59:59"), None);
+    }
+
+    #[test]
+    fn registry_value_wins_over_history() {
+        let r = choose_last_update(ts(5), || panic!("history must not be queried"));
+        assert_eq!(r, Ok(ts(5)));
+    }
+
+    #[test]
+    fn missing_registry_falls_back_to_history() {
+        assert_eq!(choose_last_update(None, || Ok(ts(9))), Ok(ts(9)));
+    }
+
+    #[test]
+    fn both_empty_is_none() {
+        assert_eq!(choose_last_update(None, || Ok(None)), Ok(None));
+    }
+
+    #[test]
+    fn history_error_is_error() {
+        let e = ProbeError::Unavailable("x".into());
+        assert_eq!(choose_last_update(None, || Err(e.clone())), Err(e));
     }
 
     #[test]
