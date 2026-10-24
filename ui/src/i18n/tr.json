@@ -212,5 +212,68 @@
       "applied": "uygulandı ve doğrulandı",
       "unverified": "uygulandı ama doğrulanamadı"
     }
+  },
+  "ui": {
+    "home": {
+      "title": "Bilgisayarınızın sağlığını kontrol edelim",
+      "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",
+      "start": "Taramayı Başlat",
+      "deep": "Derin tarama (daha uzun sürer)",
+      "last_scan": "Son tarama: {{date}}",
+      "never": "Henüz tarama yapılmadı",
+      "welcome_title": "Hoş geldiniz",
+      "welcome_body": "Bu uygulama bilgisayarınızı tarar, bulduğu sorunları anlatır ve çözümünü sunar. Her düzeltmeden önce neyin değişeceğini gösterir ve sizden onay ister.",
+      "welcome_ok": "Anladım"
+    },
+    "scanning": {
+      "title": "Bilgisayarınız taranıyor…",
+      "progress": "{{done}} / {{total}} kontrol tamamlandı",
+      "starting": "Başlıyor…",
+      "cancel": "İptal",
+      "failed": "Tarama başlatılamadı. Lütfen tekrar deneyin.",
+      "busy": "Zaten bir tarama sürüyor."
+    },
+    "results": {
+      "title": "Tarama sonucu",
+      "score": "Sağlık puanı",
+      "incomplete": "Tarama tamamlanmadı, bu yüzden puan gösterilmiyor.",
+      "all_good": "Her şey yolunda görünüyor.",
+      "could_not_check": "Bu bölüm kontrol edilemedi.",
+      "no_info": "Bilgi alınamadı",
+      "details": "Ayrıntılar",
+      "fix": "Düzelt",
+      "fix_item": "Kapat",
+      "startup_list": "Kendiliğinden başlayan programlar",
+      "see_report": "Raporu gör",
+      "rescan": "Yeniden tara",
+      "why_score": "Neden bu puan?",
+      "issues_count": "{{count}} sorun"
+    },
+    "fix": {
+      "title": "Düzeltmeyi onaylayın",
+      "admin_note": "Windows sizden izin isteyecek.",
+      "reversible": "Bu işlem geri alınabilir.",
+      "not_reversible": "Bu işlem geri alınamaz.",
+      "confirm": "Onayla ve düzelt",
+      "cancel": "Vazgeç",
+      "working": "Düzeltme uygulanıyor…",
+      "done": "Tamam",
+      "verified": "Düzeltme uygulandı ve doğrulandı.",
+      "unverified": "Düzeltme uygulandı ama sorunun çözüldüğü doğrulanamadı. Sorun listede kalmaya devam ediyor.",
+      "technical": "Teknik ayrıntılar"
+    },
+    "report": {
+      "title": "Rapor",
+      "back": "Geri dön",
+      "applied": "Yapılan düzeltmeler",
+      "remaining": "Kalan sorunlar",
+      "none": "Yok",
+      "save_text": "Metin olarak kaydet",
+      "save_pdf": "PDF olarak kaydet",
+      "saved": "Rapor kaydedildi.",
+      "save_failed": "Rapor kaydedilemedi. Başka bir konum seçmeyi deneyin.",
+      "penalty": "−{{points}} puan",
+      "no_penalties": "Puan düşüren bir sorun yok."
+    }
   }
 }
