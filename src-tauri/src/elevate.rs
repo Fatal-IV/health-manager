@@ -31,7 +31,7 @@ pub const PRODUCED_KEYS: [&str; 6] = [
     K_NOT_AVAILABLE,
 ];
 
-/// Aşama 1 has no long jobs (RunSfcDism is not implemented yet): 10 minutes.
+/// Longest helper run (DISM + SFC can take most of an hour): 60 minutes.
 pub const HELPER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3600);
 const MAX_RESULT_BYTES: u64 = 64 * 1024;
 const MAX_PARAM_LEN: usize = 256;
