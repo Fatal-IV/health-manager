@@ -6,3 +6,4 @@ graphify-out/
 *.log
 src-tauri/gen/
 src-tauri/binaries/
+dist/
