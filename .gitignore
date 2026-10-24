@@ -4,3 +4,4 @@ ui/dist/
 .superpowers/
 graphify-out/
 *.log
+src-tauri/gen/
