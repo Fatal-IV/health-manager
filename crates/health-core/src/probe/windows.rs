@@ -30,7 +30,8 @@ use windows::Win32::System::EventLog::{
 };
 use windows::Win32::System::Registry::{
     RegCloseKey, RegEnumValueW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
-    HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, REG_SAM_FLAGS, RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
+    HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, KEY_WOW64_64KEY, REG_SAM_FLAGS,
+    RRF_RT_REG_DWORD, RRF_RT_REG_SZ,
 };
 use windows::Win32::System::Services::{
     CloseServiceHandle, OpenSCManagerW, OpenServiceW, QueryServiceConfigW, QueryServiceStatus,
@@ -51,10 +52,11 @@ const DRIVE_REMOTE: u32 = 4;
 /// it drops after every COM object created later. S_OK and S_FALSE both add a
 /// reference that must be released; RPC_E_CHANGED_MODE means COM is already
 /// usable in another apartment and must not be uninitialized.
-struct ComGuard(bool);
+pub struct ComGuard(bool);
 
 impl ComGuard {
-    fn new() -> Self {
+    #[allow(clippy::new_without_default)] // initializing COM is a side effect
+    pub fn new() -> Self {
         let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         ComGuard(hr.is_ok())
     }
@@ -177,7 +179,7 @@ const WMI_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Runs `f` on a helper thread and waits at most `dur`. On timeout the thread is
 /// leaked (it cannot be cancelled) and keeps running until its call returns.
-fn run_with_timeout<T: Send + 'static>(
+pub fn run_with_timeout<T: Send + 'static>(
     dur: Duration,
     f: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, ProbeError> {
@@ -203,7 +205,7 @@ fn third_party_av_active() -> Result<bool, ProbeError> {
 
 const CM_PROB_DISABLED: u32 = 22;
 const CM_PROB_PHANTOM: u32 = 45;
-const INTEGRITY_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+pub const INTEGRITY_TIMEOUT: Duration = Duration::from_secs(20 * 60);
 
 /// Whether a device's problem code means something the user should look at.
 /// 0 = fine; CM_PROB_DISABLED (22) = the user switched the device off on
@@ -408,7 +410,7 @@ fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
 }
 
 /// True when the current process token is elevated (administrator).
-fn is_elevated() -> Result<bool, ProbeError> {
+pub fn is_elevated() -> Result<bool, ProbeError> {
     struct Tok(HANDLE);
     impl Drop for Tok {
         fn drop(&mut self) {
@@ -433,49 +435,121 @@ fn is_elevated() -> Result<bool, ProbeError> {
     Ok(elev.TokenIsElevated != 0)
 }
 
-fn system32_dir() -> PathBuf {
-    let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
-    PathBuf::from(root).join("System32")
+/// Reads a directory from a `GetSystem*DirectoryW`-style API (`len` = UTF-16
+/// units written, 0 on failure).
+fn api_dir(read: impl Fn(&mut [u16]) -> u32, fallback: &str) -> PathBuf {
+    let mut buf = vec![0u16; 520];
+    let n = read(&mut buf) as usize;
+    if n == 0 || n >= buf.len() {
+        return PathBuf::from(fallback);
+    }
+    PathBuf::from(String::from_utf16_lossy(&buf[..n]))
 }
 
-/// Runs a program with no window/output and returns its exit code. Kills the
-/// child and returns `Unavailable` when it exceeds `timeout`.
-fn run_exit_code(program: &Path, args: &[&str], timeout: Duration) -> Result<i32, ProbeError> {
+/// `System32` from `GetSystemDirectoryW`. Environment variables are NOT
+/// consulted: the elevated helper must not be redirectable through `%SystemRoot%`.
+pub fn system32_dir() -> PathBuf {
+    use windows::Win32::System::SystemInformation::GetSystemDirectoryW;
+    api_dir(
+        |b| unsafe { GetSystemDirectoryW(Some(b)) },
+        r"C:\Windows\System32",
+    )
+}
+
+/// The Windows directory from `GetSystemWindowsDirectoryW` (not `%SystemRoot%`).
+pub fn windows_dir() -> PathBuf {
+    use windows::Win32::System::SystemInformation::GetSystemWindowsDirectoryW;
+    api_dir(
+        |b| unsafe { GetSystemWindowsDirectoryW(Some(b)) },
+        r"C:\Windows",
+    )
+}
+
+/// Why [`run_process`] produced no exit code.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RunError {
+    /// The program could not be started.
+    Spawn(String),
+    /// It exceeded the timeout and was killed.
+    Timeout,
+    /// It ended without an exit code, or waiting for it failed.
+    Wait(String),
+}
+
+impl std::fmt::Display for RunError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RunError::Spawn(e) => write!(f, "could not start: {e}"),
+            RunError::Timeout => f.write_str("timed out"),
+            RunError::Wait(e) => write!(f, "wait failed: {e}"),
+        }
+    }
+}
+
+/// Runs `program` (an absolute path) with a fixed argument array: no shell, no
+/// window, stdin/stdout/stderr to null, working directory System32 and a
+/// minimal environment built from API-resolved directories only (the caller's
+/// environment, e.g. a user-planted `PATH` or `PSModulePath`, is not
+/// inherited). Kills the child when it exceeds `timeout`.
+pub fn run_process(program: &Path, args: &[&str], timeout: Duration) -> Result<i32, RunError> {
     use std::os::windows::process::CommandExt;
     use std::process::{Command, Stdio};
     const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let (sys, win) = (system32_dir(), windows_dir());
+    let drive: String = win.to_string_lossy().chars().take(2).collect();
+    let path = format!(
+        "{};{};{}",
+        sys.display(),
+        win.display(),
+        sys.join("Wbem").display()
+    );
     let mut child = Command::new(program)
         .args(args)
+        .env_clear()
+        .env("SystemRoot", &win)
+        .env("windir", &win)
+        .env("SystemDrive", drive)
+        .env("TEMP", win.join("Temp"))
+        .env("TMP", win.join("Temp"))
+        .env("PATH", path)
+        .current_dir(&sys)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .creation_flags(CREATE_NO_WINDOW)
         .spawn()
-        .map_err(|e| ProbeError::Unavailable(format!("{}: {e}", program.display())))?;
+        .map_err(|e| RunError::Spawn(format!("{}: {e}", program.display())))?;
     let start = std::time::Instant::now();
     loop {
         match child.try_wait() {
             Ok(Some(status)) => {
                 return status
                     .code()
-                    .ok_or_else(|| ProbeError::Other("process ended without exit code".into()))
+                    .ok_or_else(|| RunError::Wait("process ended without exit code".into()))
             }
             Ok(None) if start.elapsed() >= timeout => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(ProbeError::Unavailable(format!(
-                    "{} timed out",
-                    program.display()
-                )));
+                return Err(RunError::Timeout);
             }
             Ok(None) => std::thread::sleep(Duration::from_millis(200)),
             Err(e) => {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(ProbeError::Other(e.to_string()));
+                return Err(RunError::Wait(e.to_string()));
             }
         }
     }
+}
+
+/// [`run_process`] with probe errors: a timeout is `Unavailable`.
+fn run_exit_code(program: &Path, args: &[&str], timeout: Duration) -> Result<i32, ProbeError> {
+    run_process(program, args, timeout).map_err(|e| match e {
+        RunError::Spawn(_) | RunError::Timeout => {
+            ProbeError::Unavailable(format!("{}: {e}", program.display()))
+        }
+        RunError::Wait(m) => ProbeError::Other(m),
+    })
 }
 
 /// Interprets SFC (`/verifyonly`) and DISM (`/ScanHealth`) exit codes; localized
@@ -587,6 +661,64 @@ fn registry_values(root: HKEY, subkey: &str, view: REG_SAM_FLAGS) -> Vec<(String
     out
 }
 
+const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
+const RUN_KEY_32: &str = r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
+/// StartupApproved key for 64-bit (and all HKCU) Run entries.
+pub const STARTUP_APPROVED_RUN: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+/// StartupApproved key for HKLM 32-bit Run entries.
+pub const STARTUP_APPROVED_RUN32: &str =
+    r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32";
+
+/// Every registry Run value (enabled and disabled), with the StartupApproved
+/// key that controls it. HKLM is read in the 64-bit view and the 32-bit
+/// (WOW6432Node) view; HKCU `Software` is shared between views, so it is read
+/// once (reading it again "as 32-bit" would pair the same values with `Run32`
+/// and make a disabled item look enabled). StartupApproved is always read in
+/// the 64-bit view, where Explorer and Task Manager keep it.
+pub fn run_entries() -> Vec<super::RunEntry> {
+    let mut out = Vec::new();
+    for (root, hive) in [(HKEY_CURRENT_USER, "HKCU"), (HKEY_LOCAL_MACHINE, "HKLM")] {
+        // StartupApproved: first byte even (0x02, 0x06) = enabled, odd = disabled;
+        // a missing value means enabled.
+        let approved = registry_values(root, STARTUP_APPROVED_RUN, KEY_WOW64_64KEY);
+        let approved_32 = registry_values(root, STARTUP_APPROVED_RUN32, KEY_WOW64_64KEY);
+        let views: &[(&str, REG_SAM_FLAGS, &'static str)] = if hive == "HKCU" {
+            &[(RUN_KEY, REG_SAM_FLAGS(0), STARTUP_APPROVED_RUN)]
+        } else {
+            // HKLM 32-bit programs live in the WOW6432Node view; read it explicitly
+            // with KEY_WOW64_32KEY so it works regardless of process bitness.
+            &[
+                (RUN_KEY, KEY_WOW64_64KEY, STARTUP_APPROVED_RUN),
+                (RUN_KEY, KEY_WOW64_32KEY, STARTUP_APPROVED_RUN32),
+                (RUN_KEY_32, KEY_WOW64_64KEY, STARTUP_APPROVED_RUN32),
+            ]
+        };
+        for &(key, view, approved_key) in views {
+            let appr = if approved_key == STARTUP_APPROVED_RUN {
+                &approved
+            } else {
+                &approved_32
+            };
+            for (name, _) in registry_values(root, key, view) {
+                let disabled = appr
+                    .iter()
+                    .any(|(n, b)| n.eq_ignore_ascii_case(&name) && b.is_some_and(|b| b & 1 == 1));
+                let entry = super::RunEntry {
+                    hive,
+                    name,
+                    approved_key,
+                    disabled,
+                };
+                if !out.contains(&entry) {
+                    out.push(entry);
+                }
+            }
+        }
+    }
+    out
+}
+
 impl SystemProbe for WindowsProbe {
     fn disks(&self) -> Result<Vec<DiskInfo>, ProbeError> {
         let mask = unsafe { GetLogicalDrives() };
@@ -689,43 +821,19 @@ impl SystemProbe for WindowsProbe {
     }
 
     fn startup_items(&self) -> Result<Vec<StartupItem>, ProbeError> {
-        const RUN: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-        const RUN_32: &str = r"Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run";
-        const APPROVED: &str =
-            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
-        const APPROVED_32: &str =
-            r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32";
         let mut out: Vec<StartupItem> = Vec::new();
-        for (root, label) in [(HKEY_CURRENT_USER, "HKCU"), (HKEY_LOCAL_MACHINE, "HKLM")] {
-            // StartupApproved: first byte even (0x02, 0x06) = enabled, odd = disabled;
-            // a missing value means enabled.
-            let approved = registry_values(root, APPROVED, REG_SAM_FLAGS(0));
-            let approved_32 = registry_values(root, APPROVED_32, REG_SAM_FLAGS(0));
-            // HKLM 32-bit programs live in the WOW6432Node view; read it explicitly
-            // with KEY_WOW64_32KEY so it works regardless of process bitness.
-            let views = [
-                (RUN, REG_SAM_FLAGS(0), &approved),
-                (RUN, KEY_WOW64_32KEY, &approved_32),
-                (RUN_32, REG_SAM_FLAGS(0), &approved_32),
-            ];
-            for (key, view, appr) in views {
-                for (name, _) in registry_values(root, key, view) {
-                    let disabled = appr.iter().any(|(n, b)| {
-                        n.eq_ignore_ascii_case(&name) && b.is_some_and(|b| b & 1 == 1)
-                    });
-                    let id = format!("{label}|{name}");
-                    if disabled || out.iter().any(|i| i.id == id) {
-                        continue;
-                    }
-                    out.push(StartupItem {
-                        id,
-                        // No cheap reliable impact measure exists (it would need boot
-                        // trace data), so every registry Run entry is rated Medium.
-                        impact: Impact::Medium,
-                        name,
-                    });
-                }
+        for e in run_entries() {
+            let id = e.id();
+            if e.disabled || out.iter().any(|i| i.id == id) {
+                continue;
             }
+            out.push(StartupItem {
+                id,
+                // No cheap reliable impact measure exists (it would need boot
+                // trace data), so every registry Run entry is rated Medium.
+                impact: Impact::Medium,
+                name: e.name,
+            });
         }
         Ok(out)
     }
@@ -1204,6 +1312,52 @@ mod tests {
             Duration::from_millis(300),
         );
         assert!(matches!(slow, Err(ProbeError::Unavailable(_))));
+    }
+
+    #[test]
+    fn system_dirs_come_from_the_api_and_exist() {
+        let sys = system32_dir();
+        assert!(sys.join("cmd.exe").is_file(), "{}", sys.display());
+        assert!(windows_dir().join("System32").is_dir());
+    }
+
+    #[test]
+    fn run_process_does_not_inherit_the_environment() {
+        let cmd = system32_dir().join("cmd.exe");
+        std::env::set_var("SAGLIK_TEST_LEAK", "1");
+        // `if defined` exits 7 only when the variable reached the child.
+        let code = run_process(
+            &cmd,
+            &["/c", "if defined SAGLIK_TEST_LEAK (exit 7) else (exit 0)"],
+            Duration::from_secs(10),
+        );
+        assert_eq!(code, Ok(0));
+        let slow = run_process(
+            &cmd,
+            &["/c", "ping -n 30 127.0.0.1 >nul"],
+            Duration::from_millis(300),
+        );
+        assert_eq!(slow, Err(RunError::Timeout));
+        let missing = run_process(&sys_missing(), &[], Duration::from_secs(1));
+        assert!(matches!(missing, Err(RunError::Spawn(_))));
+    }
+
+    fn sys_missing() -> PathBuf {
+        system32_dir().join("definitely-not-here-xyz.exe")
+    }
+
+    #[test]
+    fn run_entries_have_well_formed_ids() {
+        for e in run_entries() {
+            assert!(e.hive == "HKCU" || e.hive == "HKLM");
+            assert_eq!(e.id(), format!("{}|{}", e.hive, e.name));
+            assert!(
+                e.approved_key == STARTUP_APPROVED_RUN || e.approved_key == STARTUP_APPROVED_RUN32
+            );
+            if e.hive == "HKCU" {
+                assert_eq!(e.approved_key, STARTUP_APPROVED_RUN);
+            }
+        }
     }
 
     #[test]

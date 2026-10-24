@@ -47,6 +47,27 @@ pub struct StartupItem {
     pub impact: Impact,
 }
 
+/// One raw registry Run value, as enumerated for the elevated helper (which
+/// must re-enumerate instead of trusting a caller-supplied id).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunEntry {
+    /// `"HKCU"` or `"HKLM"`.
+    pub hive: &'static str,
+    /// Registry value name, exactly as read.
+    pub name: String,
+    /// StartupApproved subkey (same hive) that enables/disables this entry.
+    pub approved_key: &'static str,
+    /// StartupApproved marks it disabled (first byte odd).
+    pub disabled: bool,
+}
+
+impl RunEntry {
+    /// The startup id shown to the user: `HKCU|name` / `HKLM|name`.
+    pub fn id(&self) -> String {
+        format!("{}|{}", self.hive, self.name)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceState {
     Running,
