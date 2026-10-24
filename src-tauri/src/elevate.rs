@@ -5,7 +5,7 @@
 //! executable (never PATH); arguments are a fixed array (no shell, no
 //! cmd.exe); the result file is a fresh random path in the temp dir and the
 //! helper's JSON is treated as untrusted (size limit, key pattern, truncation).
-#![allow(dead_code)] // wired into a Tauri command in a later task
+#![allow(dead_code)] // some helpers are used by tests and the real launcher only
 
 use health_core::fixes::{fix_plan, validate_arg, FixId};
 use serde::{Deserialize, Serialize};

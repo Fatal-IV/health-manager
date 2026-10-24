@@ -1,5 +1,7 @@
 {
-  "app": { "title": "Sağlık Denetimi" },
+  "app": {
+    "title": "Sağlık Denetimi"
+  },
   "issue": {
     "performance": {
       "ram_high": {
@@ -181,6 +183,34 @@
         "1": "Windows'un kendi onarım araçları çalıştırılıp bozulmuş sistem dosyaları onarılacak. Bu birkaç dakika sürebilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
       }
+    }
+  },
+  "category": {
+    "storage": "Depolama",
+    "performance": "Performans",
+    "update": "Güncelleme",
+    "security": "Güvenlik",
+    "system": "Sistem"
+  },
+  "status": {
+    "good": "İyi",
+    "warning": "Uyarı",
+    "critical": "Kritik",
+    "unknown": "Bilinmiyor"
+  },
+  "report": {
+    "title": "Bilgisayar Sağlık Raporu",
+    "scanned_at": "Tarama zamanı",
+    "score": "Sağlık puanı",
+    "incomplete": "Tarama tamamlanmadı, bu yüzden puan gösterilmiyor.",
+    "applied": "Yapılan düzeltmeler",
+    "remaining": "Kalan sorunlar",
+    "none": "Yok",
+    "detail": "Ayrıntı",
+    "not_checked": "Kontrol edilemeyenler",
+    "outcome": {
+      "applied": "uygulandı ve doğrulandı",
+      "unverified": "uygulandı ama doğrulanamadı"
     }
   }
 }

@@ -1,5 +1,6 @@
 use crate::model::{Category, CheckResult, Issue};
 use crate::probe::{ProbeError, SystemProbe};
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,13 +14,14 @@ pub trait Check: Send + Sync {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ScanMode {
     Quick,
     Deep,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Progress {
     pub done: usize,
     pub total: usize,
@@ -55,17 +57,7 @@ pub fn run_scan(
             cancelled = true;
             break;
         }
-        let (issues, error) = match catch_unwind(AssertUnwindSafe(|| check.scan(p))) {
-            Ok(Ok(issues)) => (issues, None),
-            Ok(Err(e)) => (vec![], Some(e.to_string())),
-            Err(payload) => (vec![], Some(panic_message(payload.as_ref()))),
-        };
-        results.push(CheckResult {
-            check_id: check.id().to_string(),
-            category: check.category(),
-            issues,
-            error,
-        });
+        results.push(scan_one(check.as_ref(), p));
         progress(Progress {
             done: i + 1,
             total,
@@ -74,6 +66,21 @@ pub fn run_scan(
     }
 
     ScanOutcome { results, cancelled }
+}
+
+/// Runs one check; an `Err` or a panic becomes a result with `error` set.
+pub fn scan_one(check: &dyn Check, p: &dyn SystemProbe) -> CheckResult {
+    let (issues, error) = match catch_unwind(AssertUnwindSafe(|| check.scan(p))) {
+        Ok(Ok(issues)) => (issues, None),
+        Ok(Err(e)) => (vec![], Some(e.to_string())),
+        Err(payload) => (vec![], Some(panic_message(payload.as_ref()))),
+    };
+    CheckResult {
+        check_id: check.id().to_string(),
+        category: check.category(),
+        issues,
+        error,
+    }
 }
 
 fn panic_message(payload: &(dyn Any + Send)) -> String {
