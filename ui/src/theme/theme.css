@@ -61,6 +61,7 @@ body {
 }
 .titlebar-brand { display: flex; align-items: center; gap: 9px; height: 36px; font-size: 13px; font-weight: 600; }
 .titlebar-brand svg { color: var(--accent); }
+.titlebar-version { color: var(--muted); font-weight: 500; font-size: 12px; }
 .titlebar-brand { font-weight: 700; font-size: 14px; }
 .titlebar-controls {
   display: flex;

@@ -42,6 +42,9 @@ export function TitleBar() {
           <path d="M3 10h3l1.6-4 2.6 8 1.8-4H17" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span data-tauri-drag-region>{t("app.title")}</span>
+        <span className="titlebar-version" data-tauri-drag-region>
+          v{__APP_VERSION__}
+        </span>
       </div>
       <div className="titlebar-controls" onDoubleClick={(e) => e.stopPropagation()}>
         <button type="button" className="wc" aria-label="Küçült" onClick={run((w) => w.minimize())}>
