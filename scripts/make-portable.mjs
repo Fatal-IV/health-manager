@@ -10,7 +10,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const rel = join(root, "target", "release");
 const version = JSON.parse(readFileSync(join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
 const out = join(root, "dist", `Saglik-Denetimi-v${version}`);
-rmSync(join(root, "dist"), { recursive: true, force: true });
+// Only this version's folder is replaced: an older build that is still running keeps its files.
+rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 copyFileSync(join(rel, "app.exe"), join(out, "Saglik Denetimi.exe"));
 copyFileSync(join(rel, "fix-helper.exe"), join(out, "fix-helper.exe"));
