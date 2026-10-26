@@ -101,8 +101,8 @@
         "why": "Son açılış {{seconds}} saniye sürdü; bu beklenenden uzun. Açılışta çalışan gereksiz programlar bilgisayarı yavaşlatıyor olabilir."
       },
       "boot_unknown": {
-        "title": "Açılış süresi okunamadı",
-        "why": "Açılış süresi bu bilgisayarda yönetici izni olmadan okunamıyor ya da kaydı yok. Bu yüzden açılış hızı hakkında bir şey söyleyemiyoruz."
+        "title": "Açılış süresi ölçülemedi",
+        "why": "Windows, açılış süresini yalnızca yönetici olarak çalışan programlara gösteriyor. Süreyi görmek için uygulamayı yönetici olarak yeniden başlatın; bunun dışında yapmanız gereken bir şey yok. Zaten yönetici olarak çalışıyorsa bu bilgisayarda açılış kaydı tutulmuyor olabilir."
       },
       "integrity": {
         "title": "Windows sistem dosyalarında bozulma bulundu",
@@ -252,6 +252,8 @@
       "issues_count": "{{count}} sorun",
       "areas": "Alanlar",
       "rescan_area": "Bu alanı tara",
+      "relaunch_admin": "Yönetici olarak yeniden başlat",
+      "relaunch_failed": "Uygulama yönetici olarak başlatılamadı.",
       "fix_selected": "Seçilenleri düzelt",
       "select_issue": "Seç",
       "open_update": "Windows Update'i aç"

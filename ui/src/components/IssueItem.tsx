@@ -1,4 +1,5 @@
-import { ArrowSquareOut, Wrench } from "@phosphor-icons/react";
+import { ArrowSquareOut, ShieldStar, Wrench } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { api, type Issue } from "../api";
 import { StatusIcon } from "./StatusIcon";
 import { t } from "../i18n";
@@ -34,6 +35,42 @@ const OPENS_WINDOWS_UPDATE = new Set(["update.pending", "update.last_success", "
 /** A fix that needs no extra argument can be picked for a batch. */
 export function canBatch(issue: Issue): boolean {
   return issue.fix !== null && issue.fix !== "disable_startup_item";
+}
+
+/** Offers to restart the app with administrator rights, but only while it runs without them. */
+function RelaunchAdmin() {
+  const [admin, setAdmin] = useState<boolean | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void api.isAdmin().then((r) => alive && setAdmin(r.ok ? r.value : null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (admin !== false) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="small"
+        onClick={() =>
+          void api.relaunchAsAdmin().then((r) => {
+            // Declining the Windows prompt is not an error worth shouting about; only real failures are shown.
+            setFailed(!r.ok && r.error !== "declined");
+          })
+        }
+      >
+        <ShieldStar size={15} aria-hidden />
+        {t("ui.results.relaunch_admin")}
+      </button>
+      {failed && (
+        <p className="err" role="alert">
+          {t("ui.results.relaunch_failed")}
+        </p>
+      )}
+    </>
+  );
 }
 
 export function IssueItem({
@@ -93,6 +130,8 @@ export function IssueItem({
           </button>
         )
       )}
+
+      {issue.id === "system.boot_unknown" && <RelaunchAdmin />}
 
       {OPENS_WINDOWS_UPDATE.has(issue.id) && (
         <button type="button" className="small" onClick={() => void api.openWindowsUpdate()}>

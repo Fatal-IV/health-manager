@@ -378,6 +378,38 @@ mod real {
     }
 }
 
+/// Starts this program again with administrator rights (Windows asks for permission first).
+/// `Err("declined")` when the user says no in that prompt.
+#[cfg(windows)]
+pub fn relaunch_elevated() -> Result<(), String> {
+    use windows::core::{w, HRESULT, HSTRING, PCWSTR};
+    use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW};
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    const ERROR_CANCELLED: u32 = 1223;
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let file = HSTRING::from(exe.as_os_str());
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOASYNC,
+        lpVerb: w!("runas"),
+        lpFile: PCWSTR(file.as_ptr()),
+        nShow: SW_SHOWNORMAL.0,
+        ..Default::default()
+    };
+    unsafe { ShellExecuteExW(&mut info) }.map_err(|e| {
+        if e.code() == HRESULT::from_win32(ERROR_CANCELLED) {
+            "declined".to_string()
+        } else {
+            format!("ShellExecuteExW failed: {e}")
+        }
+    })
+}
+
+#[cfg(not(windows))]
+pub fn relaunch_elevated() -> Result<(), String> {
+    Err("unsupported platform".into())
+}
+
 #[cfg(not(windows))]
 mod real {
     use super::*;

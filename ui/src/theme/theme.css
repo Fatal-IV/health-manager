@@ -283,8 +283,9 @@ button:disabled { opacity: 0.55; cursor: default; }
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  width: 92px;
+  padding: 14px 12px;
   border-radius: 36px;
   background: var(--glass);
   backdrop-filter: blur(24px) saturate(180%);
@@ -294,32 +295,50 @@ button:disabled { opacity: 0.55; cursor: default; }
 }
 .dock-item {
   position: relative;
-  gap: 10px;
+  display: block;
+  width: 52px;
   height: 52px;
-  min-width: 52px;
   padding: 0;
-  border-radius: 16px;
   border: 0;
+  border-radius: 16px;
+  background: transparent;
   color: var(--text);
+  overflow: visible;
+}
+.dock-item:hover { background: transparent; z-index: 2; }
+.dock-pill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  border-radius: 16px;
   background: rgba(20, 20, 22, 0.07);
-  transition: background 0.2s var(--ease), transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.dock-item:hover { transform: scale(1.06); }
 .dock-ico { display: grid; place-items: center; width: 52px; height: 52px; flex: none; }
-.dock-item.sel {
-  height: 68px;
-  padding: 0 20px 0 10px;
-  border-radius: 24px;
-  background: var(--accent);
-  color: var(--accent-text);
-  box-shadow: 0 18px 28px -12px rgba(255, 74, 28, 0.8);
+.dock-label {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  font-weight: 700;
+  opacity: 0;
+  transition: max-width 0.28s var(--ease), opacity 0.2s var(--ease), padding 0.28s var(--ease);
 }
-.dock-item.sel .dock-ico { width: 48px; height: 48px; border-radius: 16px; background: rgba(26, 6, 0, 0.1); }
-.dock-label { font-weight: 700; color: var(--accent-text); }
+.dock-item:hover .dock-pill, .dock-item:focus-visible .dock-pill { background: #fff; box-shadow: 0 14px 26px -14px rgba(20, 20, 22, 0.55); }
+.dock-item:hover .dock-label, .dock-item:focus-visible .dock-label { max-width: 160px; opacity: 1; padding-left: 18px; }
+.dock-item:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.dock-item.sel { width: 68px; height: 68px; border-radius: 24px; }
+.dock-item.sel .dock-pill { border-radius: 24px; background: var(--accent); color: var(--accent-text); box-shadow: 0 18px 28px -12px rgba(255, 74, 28, 0.8); }
+.dock-item.sel .dock-ico { width: 68px; height: 68px; }
+.dock-item.sel:hover .dock-pill, .dock-item.sel:focus-visible .dock-pill { background: var(--accent-hover); }
 .dock-badge {
   position: absolute;
   top: -5px;
   right: -5px;
+  z-index: 3;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
@@ -422,3 +441,12 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* First screen: pulse line instead of a score */
+.ecg { width: 100%; max-width: 420px; margin: auto 0 0; color: var(--accent); overflow: visible; }
+.ecg path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .ecg path { animation: ecg-draw 1.8s var(--ease) both; }
+}
+@keyframes ecg-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.home-pane .notice { background: none; border-radius: 0; border-bottom: 1px solid var(--border); padding: 0 0 12px; margin-bottom: 16px; }

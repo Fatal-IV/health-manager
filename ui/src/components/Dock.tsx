@@ -2,7 +2,7 @@ import type { Category, CheckResult } from "../api";
 import { t } from "../i18n";
 import { CATEGORY_ICONS, categoryStatus } from "./CategoryCard";
 
-/** Floating glass dock: one tile per category, the selected one opens up with its name. */
+/** Floating glass dock: one tile per category; a tile opens to the left with its name on hover or focus. */
 export function Dock({
   items,
   selected,
@@ -29,13 +29,16 @@ export function Dock({
             data-status={status}
             aria-pressed={isSel}
             aria-label={name}
-            title={name}
             onClick={() => onSelect(category)}
           >
-            <span className="dock-ico">
-              <Icon size={isSel ? 22 : 24} aria-hidden />
+            <span className="dock-pill">
+              <span className="dock-ico">
+                <Icon size={isSel ? 28 : 22} aria-hidden />
+              </span>
+              <span className="dock-label" aria-hidden="true">
+                {name}
+              </span>
             </span>
-            {isSel && <span className="dock-label">{name}</span>}
             {count > 0 && <span className="dock-badge">{count}</span>}
           </button>
         );

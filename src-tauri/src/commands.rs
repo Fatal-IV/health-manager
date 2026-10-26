@@ -210,6 +210,30 @@ pub fn open_windows_update() -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// True when the app already runs with administrator rights.
+#[tauri::command]
+pub fn is_admin() -> bool {
+    #[cfg(windows)]
+    {
+        health_core::probe::windows::is_elevated().unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        false
+    }
+}
+
+/// Restarts the app elevated, then closes this instance. Nothing is closed if the user declines.
+#[tauri::command]
+pub fn relaunch_as_admin(app: tauri::AppHandle) -> Result<(), String> {
+    if is_admin() {
+        return Err("already_admin".into());
+    }
+    crate::elevate::relaunch_elevated()?;
+    app.exit(0);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn cancel_scan(state: tauri::State<'_, AppState>) {
     state.cancel.store(true, Ordering::SeqCst);

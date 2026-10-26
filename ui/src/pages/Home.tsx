@@ -45,9 +45,22 @@ export function Home({
   return (
     <div className="stage home">
       <div className="stage-score">
-        <div className={`bignum${shown.length > 2 ? " wide" : ""}`} role="img" aria-label={`${t("ui.results.score")}: ${shown}`}>
-          {shown === "—" ? "?" : shown}
-        </div>
+        {shown === "—" ? (
+          <svg className="ecg" viewBox="0 0 420 200" fill="none" role="img" aria-label={`${t("ui.results.score")}: ${shown}`}>
+            <path
+              pathLength={1}
+              d="M0 110H112l14 0 14-54 18 114 16-146 18 106 12-22H262l14 0 12-34 14 62 12-28H420"
+              stroke="currentColor"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : (
+          <div className={`bignum${shown.length > 2 ? " wide" : ""}`} role="img" aria-label={`${t("ui.results.score")}: ${shown}`}>
+            {shown}
+          </div>
+        )}
         <p className="bignum-sub">
           {lastScan ? t("ui.home.last_scan", { date: new Date(lastScan).toLocaleString("tr-TR") }) : t("ui.home.never")}
         </p>

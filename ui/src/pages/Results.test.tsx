@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { api } from "../api";
 import { categoryStatus } from "../components/CategoryCard";
 import { parseStartupItems } from "../components/IssueItem";
@@ -132,6 +132,25 @@ describe("Results", () => {
     render(<Results report={report()} onFix={noop} onReport={noop} onRescan={noop} onRescanArea={onArea} />);
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.rescan_area") }));
     expect(onArea).toHaveBeenCalledWith("storage");
+  });
+
+  it("an unreadable boot time offers an admin restart, only while not admin", async () => {
+    const boot = issue({ id: "system.boot_unknown", category: "system", status: "unknown", fix: null, title_key: "issue.system.boot_unknown.title", why_key: "issue.system.boot_unknown.why" });
+    const view = () => (
+      <Results report={report({ results: [check({ check_id: "system.boot", category: "system", issues: [boot] })] })} onFix={noop} onReport={noop} onRescan={noop} />
+    );
+    vi.spyOn(api, "isAdmin").mockResolvedValue({ ok: true, value: true });
+    const first = render(view());
+    await act(async () => undefined);
+    expect(screen.queryByRole("button", { name: t("ui.results.relaunch_admin") })).not.toBeInTheDocument();
+    first.unmount();
+
+    vi.spyOn(api, "isAdmin").mockResolvedValue({ ok: true, value: false });
+    const relaunch = vi.spyOn(api, "relaunchAsAdmin").mockResolvedValue({ ok: true, value: undefined });
+    render(view());
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.results.relaunch_admin") }));
+    expect(relaunch).toHaveBeenCalledTimes(1);
   });
 
   it("parseStartupItems ignores garbage", () => {
