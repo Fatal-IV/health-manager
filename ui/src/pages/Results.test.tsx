@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { api } from "../api";
 import { categoryStatus } from "../components/CategoryCard";
 import { parseStartupItems } from "../components/IssueItem";
 import { t } from "../i18n";
@@ -90,6 +91,16 @@ describe("Results", () => {
     fireEvent.click(screen.getByRole("button", { name: `${t("ui.results.fix_item")}: Updater` }));
     expect(onFix).toHaveBeenCalledWith(startup, "HKLM|Vendor\\Updater", "Updater");
     expect(screen.getAllByRole("button", { name: new RegExp(t("ui.results.fix_item")) })).toHaveLength(2);
+  });
+
+  it("update issues offer to open Windows Update", () => {
+    const open = vi.spyOn(api, "openWindowsUpdate").mockResolvedValue({ ok: true, value: undefined });
+    const pending = issue({ id: "update.pending", category: "update", fix: null });
+    render(
+      <Results report={report({ results: [check({ check_id: "u", category: "update", issues: [pending] })] })} onFix={noop} onReport={noop} onRescan={noop} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: t("ui.results.open_update") }));
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it("parseStartupItems ignores garbage", () => {

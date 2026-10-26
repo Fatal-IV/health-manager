@@ -248,7 +248,8 @@
       "rescan": "Yeniden tara",
       "why_score": "Neden bu puan?",
       "issues_count": "{{count}} sorun",
-      "areas": "Alanlar"
+      "areas": "Alanlar",
+      "open_update": "Windows Update'i aç"
     },
     "fix": {
       "title": "Düzeltmeyi onaylayın",

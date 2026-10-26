@@ -351,7 +351,7 @@ ul.plain li { padding: 6px 0; }
 .issue ul.plain li { border-top: 1px solid var(--border); }
 .issue ul.plain li:first-child { border-top: 0; }
 details > summary { cursor: pointer; color: var(--muted); font-size: 0.9rem; }
-details code, pre { display: block; margin-top: 6px; padding: 10px 12px; background: var(--surface-2); border-radius: 8px; font-size: 0.85rem; overflow-wrap: anywhere; }
+details code, pre { white-space: pre-wrap; display: block; margin-top: 6px; padding: 10px 12px; background: var(--surface-2); border-radius: 8px; font-size: 0.85rem; overflow-wrap: anywhere; }
 details.card { padding: 16px 22px; }
 
 .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px; }

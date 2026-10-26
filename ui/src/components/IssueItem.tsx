@@ -1,5 +1,5 @@
-import { Wrench } from "@phosphor-icons/react";
-import type { Issue } from "../api";
+import { ArrowSquareOut, Wrench } from "@phosphor-icons/react";
+import { api, type Issue } from "../api";
 import { StatusIcon } from "./StatusIcon";
 import { t } from "../i18n";
 
@@ -27,6 +27,9 @@ export function parseStartupItems(json: string | undefined): StartupEntry[] {
 
 /** `arg` is the value for fixes that need one; `label` is what the preview should call the target. */
 export type FixHandler = (issue: Issue, arg?: string, label?: string) => void;
+
+/** Updates are installed by Windows itself; these issues point the user at its settings page. */
+const OPENS_WINDOWS_UPDATE = new Set(["update.pending", "update.last_success", "update.never_updated"]);
 
 export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler }) {
   const items = issue.fix === "disable_startup_item" ? parseStartupItems(issue.params.items) : [];
@@ -63,6 +66,13 @@ export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler })
             {t("ui.results.fix")}
           </button>
         )
+      )}
+
+      {OPENS_WINDOWS_UPDATE.has(issue.id) && (
+        <button type="button" className="small" onClick={() => void api.openWindowsUpdate()}>
+          <ArrowSquareOut size={15} aria-hidden />
+          {t("ui.results.open_update")}
+        </button>
       )}
 
       {issue.evidence && (
