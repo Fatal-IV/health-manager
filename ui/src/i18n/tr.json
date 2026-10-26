@@ -223,6 +223,14 @@
     }
   },
   "ui": {
+    "update": {
+      "available": "Yeni sürüm hazır: {{version}}",
+      "install": "Güncelle",
+      "installing": "İndiriliyor…",
+      "later": "Sonra",
+      "retry": "Tekrar dene",
+      "failed": "Güncelleme yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+    },
     "home": {
       "title": "Bilgisayarınızın sağlığını kontrol edelim",
       "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",

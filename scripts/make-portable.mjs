@@ -13,7 +13,7 @@ const out = join(root, "dist", `Saglik-Denetimi-v${version}`);
 // Only this version's folder is replaced: an older build that is still running keeps its files.
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-copyFileSync(join(rel, "app.exe"), join(out, "Saglik Denetimi.exe"));
+copyFileSync(join(rel, "saglik-denetimi.exe"), join(out, "Saglik Denetimi.exe"));
 copyFileSync(join(rel, "fix-helper.exe"), join(out, "fix-helper.exe"));
 if (process.argv.includes("--zip")) {
   const zip = join(root, "dist", `Saglik-Denetimi-v${version}.zip`);

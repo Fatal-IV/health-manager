@@ -2,6 +2,7 @@
 
 mod commands;
 mod elevate;
+mod update;
 
 #[tauri::command]
 fn app_version() -> String {
@@ -21,6 +22,8 @@ fn main() {
             commands::apply_fix_cmd,
             commands::get_session,
             commands::export_report,
+            update::check_update,
+            update::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

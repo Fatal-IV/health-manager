@@ -16,6 +16,8 @@ vi.mock("./api", async (orig) => {
       getSession: vi.fn(),
       exportReport: vi.fn(),
       onProgress: vi.fn(),
+      checkUpdate: vi.fn(),
+      installUpdate: vi.fn(),
     },
   };
 });
@@ -29,6 +31,7 @@ describe("App", () => {
     localStorage.setItem("saglik-denetimi.welcomed", "1");
     vi.mocked(api.onProgress).mockResolvedValue(() => undefined);
     vi.mocked(api.cancelScan).mockResolvedValue({ ok: true, value: undefined });
+    vi.mocked(api.checkUpdate).mockResolvedValue({ ok: true, value: null });
   });
 
   it("renders app title and the start screen", () => {

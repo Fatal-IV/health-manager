@@ -37,9 +37,9 @@ export function TitleBar() {
   return (
     <header className="titlebar" data-tauri-drag-region onDoubleClick={run((w) => w.toggleMaximize())}>
       <div className="titlebar-brand" data-tauri-drag-region>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <rect width="20" height="20" rx="6" fill="#ff4a1c" />
-          <path d="M3 10h3l1.6-4 2.6 8 1.8-4H17" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        <svg width="22" height="22" viewBox="0 0 512 512" fill="none" aria-hidden="true">
+          <path d="M256 36C196 78 126 92 72 92v158c0 108 76 188 184 228 108-40 184-120 184-228V92c-54 0-124-14-184-56Z" fill="#ff4a1c" />
+          <path d="M104 262h78l34-82 56 164 40-110 20 28h76" stroke="#fff" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span data-tauri-drag-region>{t("app.title")}</span>
         <span className="titlebar-version" data-tauri-drag-region>

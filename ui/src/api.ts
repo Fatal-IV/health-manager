@@ -64,6 +64,12 @@ export interface Progress {
   category: Category;
 }
 
+/** An available newer release; the download links stay on the Rust side. */
+export interface UpdateInfo {
+  version: string;
+  notes: string;
+}
+
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Result<T>> {
@@ -78,6 +84,8 @@ export const api = {
   startScan: (mode: ScanMode, categories?: Category[]) =>
     call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
   cancelScan: () => call<void>("cancel_scan"),
+  checkUpdate: () => call<UpdateInfo | null>("check_update"),
+  installUpdate: () => call<void>("install_update"),
   openWindowsUpdate: () => call<void>("open_windows_update"),
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
   applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),
