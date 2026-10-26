@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 
 /** Circular health score. `null` means "no score" (scan incomplete). */
-export function ScoreRing({ value }: { value: number | null }) {
+export function ScoreRing({ value, size = 168 }: { value: number | null; size?: number }) {
   const r = 52;
   const c = 2 * Math.PI * r;
   const offset = value === null ? c : c * (1 - value / 100);
@@ -11,13 +11,13 @@ export function ScoreRing({ value }: { value: number | null }) {
   return (
     <svg
       className="ring"
-      width="140"
-      height="140"
+      width={size}
+      height={size}
       viewBox="0 0 140 140"
       role="img"
       aria-label={`${t("ui.results.score")}: ${shown}`}
     >
-      <circle cx="70" cy="70" r={r} fill="none" stroke="var(--border)" strokeWidth="12" />
+      <circle className="track" cx="70" cy="70" r={r} fill="none" strokeWidth="10" />
       <circle
         className="value"
         cx="70"
@@ -25,14 +25,14 @@ export function ScoreRing({ value }: { value: number | null }) {
         r={r}
         fill="none"
         stroke={color}
-        strokeWidth="12"
+        strokeWidth="10"
         strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={offset}
         transform="rotate(-90 70 70)"
       />
-      <text x="70" y="78" textAnchor="middle" fontSize="30">
-        {shown}
+      <text x="70" y="82" textAnchor="middle" fontSize={value === null ? 34 : 40} aria-hidden="true">
+        {value === null ? "?" : shown}
       </text>
     </svg>
   );

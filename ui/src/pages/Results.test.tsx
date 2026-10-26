@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { categoryStatus } from "../components/CategoryCard";
 import { parseStartupItems } from "../components/IssueItem";
 import { t } from "../i18n";
@@ -26,14 +26,14 @@ describe("Results", () => {
     render(<Results report={report({ results: [failed] })} onFix={noop} onReport={noop} onRescan={noop} />);
     const card = screen.getByTestId("card-system");
     expect(card).toHaveAttribute("data-status", "unknown");
-    fireEvent.click(within(card).getByRole("button"));
-    expect(within(card).getByText(t("ui.results.could_not_check"))).toBeInTheDocument();
+    fireEvent.click(card);
+    expect(screen.getByText(t("ui.results.could_not_check"))).toBeInTheDocument();
   });
 
   it("an unknown issue is muted and offers no fix", () => {
     const r = report({ results: [check({ issues: [issue({ status: "unknown", fix: null })] })] });
     render(<Results report={r} onFix={noop} onReport={noop} onRescan={noop} />);
-    fireEvent.click(within(screen.getByTestId("card-storage")).getByRole("button", { name: /.*/ }));
+    fireEvent.click(screen.getByTestId("card-storage"));
     expect(screen.queryByRole("button", { name: t("ui.results.fix") })).not.toBeInTheDocument();
   });
 

@@ -247,7 +247,8 @@
       "see_report": "Raporu gör",
       "rescan": "Yeniden tara",
       "why_score": "Neden bu puan?",
-      "issues_count": "{{count}} sorun"
+      "issues_count": "{{count}} sorun",
+      "areas": "Alanlar"
     },
     "fix": {
       "title": "Düzeltmeyi onaylayın",

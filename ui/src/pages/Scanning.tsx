@@ -52,13 +52,13 @@ export function Scanning({
 
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   return (
-    <main className="center">
+    <main className="scan">
       <h1>{t("ui.scanning.title")}</h1>
       <progress value={pct} max={100} aria-label={t("ui.scanning.title")} />
       <p className="muted" aria-live="polite">
         {progress ? (
           <>
-            {t(`category.${progress.category}`)} · {t("ui.scanning.progress", { done: progress.done, total: progress.total })}
+            {t(`category.${progress.category}`)}, {t("ui.scanning.progress", { done: progress.done, total: progress.total })}
           </>
         ) : (
           t("ui.scanning.starting")

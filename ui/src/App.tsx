@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, type AppliedFix, type ApplyResult, type FixPlan, type Issue, type ScanMode, type ScanReport } from "./api";
+import { TitleBar } from "./components/TitleBar";
 import { t } from "./i18n";
 import { FixPreview } from "./pages/FixPreview";
 import { Home } from "./pages/Home";
@@ -56,11 +57,9 @@ export default function App() {
 
   return (
     <>
-      <header style={{ padding: "12px 20px" }} className="muted">
-        {t("app.title")}
-      </header>
+      <TitleBar />
       {notice && (
-        <p role="alert" className="err" style={{ textAlign: "center" }}>
+        <p role="alert" className="notice-bar">
           {notice}
         </p>
       )}

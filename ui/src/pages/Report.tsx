@@ -1,4 +1,5 @@
 import { save } from "@tauri-apps/plugin-dialog";
+import { ArrowLeft, FilePdf, FileText } from "@phosphor-icons/react";
 import { useState } from "react";
 import { api, type AppliedFix, type ReportFormat, type ScanReport } from "../api";
 import { t } from "../i18n";
@@ -42,7 +43,7 @@ export function Report({
         {applied.length === 0 ? (
           <p className="muted">{t("ui.report.none")}</p>
         ) : (
-          <ul className="plain">
+          <ul className="plain report-list">
             {applied.map((a, n) => (
               <li key={`${a.fix}-${n}`}>
                 {t(`fix.${a.fix}.summary`)} — {t(`report.outcome.${a.outcome}`)}
@@ -57,7 +58,7 @@ export function Report({
         {issues.length === 0 ? (
           <p className="muted">{t("ui.report.none")}</p>
         ) : (
-          <ul className="plain">
+          <ul className="plain report-list">
             {issues.map((i) => (
               <li key={i.id}>
                 <span className={`badge s-${i.status}`}>{t(`status.${i.status}`)}</span> {t(i.title_key, i.params)}
@@ -87,14 +88,17 @@ export function Report({
         </details>
       )}
 
-      <div className="row">
+      <div className="actions">
         <button type="button" className="primary" onClick={() => void exportAs("text")}>
+          <FileText size={17} aria-hidden />
           {t("ui.report.save_text")}
         </button>
-        <button type="button" className="primary" onClick={() => void exportAs("pdf")}>
+        <button type="button" onClick={() => void exportAs("pdf")}>
+          <FilePdf size={17} aria-hidden />
           {t("ui.report.save_pdf")}
         </button>
         <button type="button" onClick={onBack}>
+          <ArrowLeft size={17} aria-hidden />
           {t("ui.report.back")}
         </button>
       </div>

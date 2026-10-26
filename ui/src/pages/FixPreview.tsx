@@ -1,3 +1,4 @@
+import { ArrowRight, CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react";
 import type { ApplyResult, FixPlan } from "../api";
 import { t } from "../i18n";
 
@@ -29,9 +30,12 @@ export function FixPreview({
 
         {!result && (
           <>
-            <ul className="plain" aria-label={t("ui.fix.title")}>
+            <ul className="plain changes" aria-label={t("ui.fix.title")}>
               {plan.changes.map((c) => (
-                <li key={c}>{t(c, params)}</li>
+                <li key={c}>
+                  <ArrowRight size={16} aria-hidden />
+                  <span>{t(c, params)}</span>
+                </li>
               ))}
             </ul>
             {plan.needs_admin && <p>{t("ui.fix.admin_note")}</p>}
@@ -63,17 +67,27 @@ function Outcome({ result }: { result: ApplyResult }) {
   if (o.status === "declined") return <p role="status">{t("fix.result.declined")}</p>;
   if (o.status === "applied") {
     return (
-      <div role="status">
-        <p>{t(o.message, o.params)}</p>
-        <p className={result.verified ? "s-good" : "s-warning"}>
-          {result.verified ? t("ui.fix.verified") : t("ui.fix.unverified")}
-        </p>
+      <div role="status" className="outcome">
+        {result.verified ? (
+          <CheckCircle size={20} weight="fill" className="s-good" aria-hidden />
+        ) : (
+          <WarningCircle size={20} weight="fill" className="s-warning" aria-hidden />
+        )}
+        <div>
+          <p>{t(o.message, o.params)}</p>
+          <p className={result.verified ? "s-good" : "s-warning"}>
+            {result.verified ? t("ui.fix.verified") : t("ui.fix.unverified")}
+          </p>
+        </div>
       </div>
     );
   }
   return (
     <div role="alert">
-      <p className="err">{t(o.message, o.params)}</p>
+      <div className="outcome">
+        <XCircle size={20} weight="fill" className="s-critical" aria-hidden />
+        <p className="err">{t(o.message, o.params)}</p>
+      </div>
       {o.detail && (
         <details>
           <summary>{t("ui.fix.technical")}</summary>

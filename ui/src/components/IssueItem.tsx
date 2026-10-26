@@ -1,4 +1,6 @@
+import { Wrench } from "@phosphor-icons/react";
 import type { Issue } from "../api";
+import { StatusIcon } from "./StatusIcon";
 import { t } from "../i18n";
 
 export interface StartupEntry {
@@ -30,20 +32,24 @@ export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler })
   const items = issue.fix === "disable_startup_item" ? parseStartupItems(issue.params.items) : [];
   return (
     <div className={`issue ${issue.status}`} data-testid={`issue-${issue.id}`}>
-      <div className="row between">
-        <strong>{t(issue.title_key, issue.params)}</strong>
+      <span className="issue-icon">
+        <StatusIcon status={issue.status} />
+      </span>
+      <div>
+      <div className="issue-title">
+        <span>{t(issue.title_key, issue.params)}</span>
         <span className={`badge s-${issue.status}`}>{t(`status.${issue.status}`)}</span>
       </div>
-      <p className="muted">{t(issue.why_key, issue.params)}</p>
+      <p>{t(issue.why_key, issue.params)}</p>
 
       {items.length > 0 ? (
         <div>
-          <div>{t("ui.results.startup_list")}</div>
+          <div className="startup-label">{t("ui.results.startup_list")}</div>
           <ul className="plain">
             {items.map((it) => (
               <li key={it.id} className="row between">
                 <span>{it.name}</span>
-                <button type="button" aria-label={`${t("ui.results.fix_item")}: ${it.name}`} onClick={() => onFix(issue, it.id, it.name)}>
+                <button type="button" className="small" aria-label={`${t("ui.results.fix_item")}: ${it.name}`} onClick={() => onFix(issue, it.id, it.name)}>
                   {t("ui.results.fix_item")}
                 </button>
               </li>
@@ -52,7 +58,8 @@ export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler })
         </div>
       ) : (
         issue.fix && (
-          <button type="button" onClick={() => onFix(issue)}>
+          <button type="button" className="primary small" onClick={() => onFix(issue)}>
+            <Wrench size={15} aria-hidden />
             {t("ui.results.fix")}
           </button>
         )
@@ -64,6 +71,7 @@ export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler })
           <code>{issue.evidence}</code>
         </details>
       )}
+      </div>
     </div>
   );
 }
