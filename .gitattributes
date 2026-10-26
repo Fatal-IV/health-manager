@@ -1,0 +1,3 @@
+# Signed or signature-checked bytes must never be rewritten by line-ending conversion.
+src-tauri/testdata/* -text
+src-tauri/updater.pub -text
