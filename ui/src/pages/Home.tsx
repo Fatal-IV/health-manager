@@ -1,7 +1,6 @@
 import { Info, Play } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { Category, ScanMode } from "../api";
-import { ScoreRing } from "../components/ScoreRing";
 import { t } from "../i18n";
 
 const AREAS: Category[] = ["security", "update", "storage", "performance", "system"];
@@ -42,61 +41,61 @@ export function Home({
     if (areas.length === AREAS.length) onStart(mode);
     else onStart(mode, AREAS.filter((c) => areas.includes(c)));
   };
+  const shown = score === null || score === undefined ? "—" : String(score);
   return (
-    <main>
-      {welcome && (
-        <section className="notice" role="region" aria-label={t("ui.home.welcome_title")}>
-          <Info size={20} weight="fill" aria-hidden />
-          <div>
-          <h2>{t("ui.home.welcome_title")}</h2>
-          <p>{t("ui.home.welcome_body")}</p>
-          <button
-            type="button"
-            className="small"
-            onClick={() => {
-              markWelcomed();
-              setWelcome(false);
-            }}
-          >
-            {t("ui.home.welcome_ok")}
-          </button>
-          </div>
-        </section>
-      )}
-
-      <div className="hero">
-        <div>
-          <h1>{t("ui.home.title")}</h1>
-          <p className="lead">{t("ui.home.subtitle")}</p>
-          <div className="cta">
-            <button type="button" className="primary big" disabled={areas.length === 0} onClick={start}>
-              <Play size={18} weight="fill" aria-hidden />
-              {t("ui.home.start")}
-            </button>
-          </div>
-          <fieldset className="areas">
-            <legend>{t("ui.home.areas")}</legend>
-            {AREAS.map((c) => (
-              <label key={c} className={`chip${areas.includes(c) ? " on" : ""}`}>
-                <input type="checkbox" checked={areas.includes(c)} onChange={() => toggleArea(c)} />
-                {t(`category.${c}`)}
-              </label>
-            ))}
-          </fieldset>
-          {areas.length === 0 && <p className="muted">{t("ui.home.pick_one")}</p>}
-          <label className="toggle">
-            <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-            <span className="switch" aria-hidden />
-            {t("ui.home.deep")}
-          </label>
+    <div className="stage home">
+      <div className="stage-score">
+        <div className={`bignum${shown.length > 2 ? " wide" : ""}`} role="img" aria-label={`${t("ui.results.score")}: ${shown}`}>
+          {shown === "—" ? "?" : shown}
         </div>
-        <div className="hero-panel">
-          <ScoreRing value={score ?? null} />
-          <p className="muted">
-            {lastScan ? t("ui.home.last_scan", { date: new Date(lastScan).toLocaleString("tr-TR") }) : t("ui.home.never")}
-          </p>
-        </div>
+        <p className="bignum-sub">
+          {lastScan ? t("ui.home.last_scan", { date: new Date(lastScan).toLocaleString("tr-TR") }) : t("ui.home.never")}
+        </p>
       </div>
-    </main>
+      <section className="pane home-pane">
+        {welcome && (
+          <section className="notice" role="region" aria-label={t("ui.home.welcome_title")}>
+            <Info size={20} weight="fill" aria-hidden />
+            <div>
+              <h2>{t("ui.home.welcome_title")}</h2>
+              <p>{t("ui.home.welcome_body")}</p>
+              <button
+                type="button"
+                className="small"
+                onClick={() => {
+                  markWelcomed();
+                  setWelcome(false);
+                }}
+              >
+                {t("ui.home.welcome_ok")}
+              </button>
+            </div>
+          </section>
+        )}
+        <h1>{t("ui.home.title")}</h1>
+        <p className="lead">{t("ui.home.subtitle")}</p>
+        <fieldset className="areas">
+          <legend>{t("ui.home.areas")}</legend>
+          {AREAS.map((c) => (
+            <label key={c} className={`chip${areas.includes(c) ? " on" : ""}`}>
+              <input type="checkbox" checked={areas.includes(c)} onChange={() => toggleArea(c)} />
+              {t(`category.${c}`)}
+            </label>
+          ))}
+        </fieldset>
+        {areas.length === 0 && <p className="muted">{t("ui.home.pick_one")}</p>}
+        <div className="cta">
+          <button type="button" className="primary big" disabled={areas.length === 0} onClick={start}>
+            <Play size={18} weight="fill" aria-hidden />
+            {t("ui.home.start")}
+          </button>
+        </div>
+        <label className="toggle">
+          <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
+          <span className="switch" aria-hidden />
+          {t("ui.home.deep")}
+        </label>
+      </section>
+    </div>
   );
 }

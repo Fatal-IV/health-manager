@@ -109,23 +109,25 @@ p { margin: 0 0 12px; }
 
 /* Surfaces */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 20px 22px;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  border-radius: 28px;
+  box-shadow: inset 0 1px 0 #fff, 0 34px 56px -30px rgba(20, 20, 22, 0.45);
+  padding: 22px 26px;
   margin: 0 0 16px;
 }
 .notice {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  background: var(--accent-soft);
-  border-radius: var(--radius);
+  background: rgba(20, 20, 22, 0.06);
+  border-radius: 20px;
   padding: 14px 16px;
-  margin: 0 0 28px;
+  margin: 0 0 20px;
 }
-.notice svg { flex: none; margin-top: 2px; color: var(--accent); }
+.notice svg { flex: none; margin-top: 2px; color: var(--text); }
 .notice p { margin: 0 0 10px; }
 .notice h2 { margin-bottom: 4px; }
 
@@ -348,7 +350,18 @@ button:disabled { opacity: 0.55; cursor: default; }
 .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .chip.on { background: var(--text); color: #fff; border-color: var(--text); }
 .chip:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.stage.home { grid-template-columns: minmax(300px, 0.9fr) minmax(0, 1.1fr); }
+.home-pane { max-width: 560px; padding: 24px 28px; }
+.home-pane .notice { padding: 10px 14px; margin-bottom: 14px; font-size: 0.9rem; }
+.home-pane .notice p { margin: 0 0 8px; }
+.home-pane .notice h2 { font-size: 0.95rem; margin-bottom: 2px; }
+.home-pane .areas { margin: 12px 0 8px; }
+.home-pane .chip { padding: 5px 14px; }
+.home-pane h1 { font-size: 1.7rem; }
+.home-pane .lead { margin-bottom: 4px; }
+.home-pane .cta { margin: 20px 0 16px; }
 @media (max-width: 820px) {
+  .stage.home { grid-template-columns: 1fr; }
   .pane-wrap { margin-left: 0; }
   .stage { grid-template-columns: 1fr auto; }
   .stage-score { grid-column: 1 / -1; }

@@ -54,7 +54,12 @@ export function Scanning({
 
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   return (
-    <main className="scan">
+    <div className="stage home">
+      <div className="stage-score" aria-hidden="true">
+        <div className="bignum">{pct}</div>
+        <p className="bignum-sub">%</p>
+      </div>
+      <section className="pane home-pane">
       <h1>{t("ui.scanning.title")}</h1>
       <progress value={pct} max={100} aria-label={t("ui.scanning.title")} />
       <p className="muted" aria-live="polite">
@@ -74,6 +79,7 @@ export function Scanning({
       <button type="button" onClick={cancel}>
         {error ? t("ui.report.back") : t("ui.scanning.cancel")}
       </button>
-    </main>
+      </section>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { CopySimple, Minus, ShieldCheck, Square, X } from "@phosphor-icons/react";
+import { CopySimple, Minus, Square, X } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { t } from "../i18n";
@@ -37,7 +37,10 @@ export function TitleBar() {
   return (
     <header className="titlebar" data-tauri-drag-region onDoubleClick={run((w) => w.toggleMaximize())}>
       <div className="titlebar-brand" data-tauri-drag-region>
-        <ShieldCheck size={18} weight="fill" aria-hidden />
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <rect width="20" height="20" rx="6" fill="#ff4a1c" />
+          <path d="M3 10h3l1.6-4 2.6 8 1.8-4H17" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
         <span data-tauri-drag-region>{t("app.title")}</span>
       </div>
       <div className="titlebar-controls" onDoubleClick={(e) => e.stopPropagation()}>
