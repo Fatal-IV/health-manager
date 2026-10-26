@@ -857,6 +857,26 @@ impl SystemProbe for WindowsProbe {
         Ok(count.max(0) as u32)
     }
 
+    fn pending_update_titles(&self) -> Result<Vec<String>, ProbeError> {
+        let _com = ComGuard::new();
+        let session: IUpdateSession =
+            unsafe { CoCreateInstance(&UpdateSession, None, CLSCTX_INPROC_SERVER) }
+                .map_err(unavailable)?;
+        let searcher = unsafe { session.CreateUpdateSearcher() }.map_err(unavailable)?;
+        unsafe { searcher.SetOnline(VARIANT_FALSE) }.map_err(unavailable)?;
+        let result = unsafe { searcher.Search(&"IsInstalled=0 and IsHidden=0".into()) }
+            .map_err(unavailable)?;
+        let updates = unsafe { result.Updates() }.map_err(unavailable)?;
+        let count = unsafe { updates.Count() }.map_err(unavailable)?;
+        let mut titles = Vec::new();
+        for i in 0..count.min(25) {
+            let update = unsafe { updates.get_Item(i) }.map_err(unavailable)?;
+            let title = unsafe { update.Title() }.map_err(unavailable)?;
+            titles.push(title.to_string());
+        }
+        Ok(titles)
+    }
+
     fn service_state(&self, name: &str) -> Result<ServiceState, ProbeError> {
         /// Closes the handle on every path.
         struct Handle(SC_HANDLE);

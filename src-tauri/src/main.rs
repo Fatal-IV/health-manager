@@ -16,6 +16,7 @@ fn main() {
             app_version,
             commands::start_scan,
             commands::cancel_scan,
+            commands::open_windows_update,
             commands::get_fix_plan,
             commands::apply_fix_cmd,
             commands::get_session,

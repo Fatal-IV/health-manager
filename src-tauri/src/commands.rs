@@ -173,6 +173,16 @@ pub async fn start_scan(
     .map_err(|e| e.to_string())?
 }
 
+/// Opens the Windows Update page of Settings. The URI is fixed, nothing from the UI reaches the command line.
+#[tauri::command]
+pub fn open_windows_update() -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg("ms-settings:windowsupdate")
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn cancel_scan(state: tauri::State<'_, AppState>) {
     state.cancel.store(true, Ordering::SeqCst);

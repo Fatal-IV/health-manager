@@ -129,6 +129,10 @@ pub trait SystemProbe: Send + Sync {
     /// Number of pending (not installed, not hidden) Windows updates, from the
     /// local cache only. `Err` when it cannot be determined.
     fn pending_updates(&self) -> Result<u32, ProbeError>;
+    /// Titles of the pending updates (best effort, for the details view).
+    fn pending_update_titles(&self) -> Result<Vec<String>, ProbeError> {
+        Ok(Vec::new())
+    }
     /// State of a Windows service, read from the Service Control Manager.
     fn service_state(&self, name: &str) -> Result<ServiceState, ProbeError>;
     /// Time of the last successful Windows update install; `None` = never/unknown.

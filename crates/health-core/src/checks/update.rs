@@ -47,11 +47,19 @@ impl Check for PendingUpdatesCheck {
         if count == 0 {
             return Ok(Vec::new());
         }
+        // Names are a nicety for the details view; failing to read them must not hide the issue.
+        let titles = p.pending_update_titles().unwrap_or_default();
+        let evidence = if titles.is_empty() {
+            format!("{count} pending update(s)")
+        } else {
+            titles.join("
+")
+        };
         Ok(vec![issue(
             "update.pending",
             "pending",
             Status::Warning,
-            format!("{count} pending update(s)"),
+            evidence,
             BTreeMap::from([("count".to_string(), count.to_string())]),
             None,
         )])
