@@ -1,6 +1,8 @@
 import { ArrowsClockwise, Desktop, Gauge, HardDrives, ShieldCheck, type Icon as PhosphorIcon } from "@phosphor-icons/react";
 import type { Category, CheckResult, Status } from "../api";
 import { t } from "../i18n";
+import type { Issue } from "../api";
+import { ArrowClockwise } from "@phosphor-icons/react";
 import { IssueItem, type FixHandler } from "./IssueItem";
 
 export const CATEGORY_ICONS: Record<Category, PhosphorIcon> = {
@@ -28,10 +30,16 @@ export function CategoryPanel({
   category,
   results,
   onFix,
+  picked,
+  onPick,
+  onRescanArea,
 }: {
   category: Category;
   results: CheckResult[];
   onFix: FixHandler;
+  picked?: ReadonlySet<string>;
+  onPick?: (issue: Issue, checked: boolean) => void;
+  onRescanArea?: () => void;
 }) {
   const status = categoryStatus(results);
   const issues = results.flatMap((r) => r.issues);
@@ -48,10 +56,16 @@ export function CategoryPanel({
           <span className="muted">{issues.length > 0 ? t("ui.results.issues_count", { count: issues.length }) : t(`status.${status}`)}</span>
         </div>
         <span className={`badge s-${status}`}>{t(`status.${status}`)}</span>
+        {onRescanArea && (
+          <button type="button" className="small" onClick={onRescanArea}>
+            <ArrowClockwise size={15} aria-hidden />
+            {t("ui.results.rescan_area")}
+          </button>
+        )}
       </header>
       <div className="pane-body">
         {issues.map((i) => (
-          <IssueItem key={i.id} issue={i} onFix={onFix} />
+          <IssueItem key={i.id} issue={i} onFix={onFix} selected={picked?.has(i.id)} onSelect={onPick && ((c) => onPick(i, c))} />
         ))}
         {failed.length > 0 && <p className="muted">{t("ui.results.could_not_check")}</p>}
         {issues.length === 0 && failed.length === 0 && <p className="muted">{t("ui.results.all_good")}</p>}

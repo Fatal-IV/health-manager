@@ -31,7 +31,22 @@ export type FixHandler = (issue: Issue, arg?: string, label?: string) => void;
 /** Updates are installed by Windows itself; these issues point the user at its settings page. */
 const OPENS_WINDOWS_UPDATE = new Set(["update.pending", "update.last_success", "update.never_updated"]);
 
-export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler }) {
+/** A fix that needs no extra argument can be picked for a batch. */
+export function canBatch(issue: Issue): boolean {
+  return issue.fix !== null && issue.fix !== "disable_startup_item";
+}
+
+export function IssueItem({
+  issue,
+  onFix,
+  selected,
+  onSelect,
+}: {
+  issue: Issue;
+  onFix: FixHandler;
+  selected?: boolean;
+  onSelect?: (checked: boolean) => void;
+}) {
   const items = issue.fix === "disable_startup_item" ? parseStartupItems(issue.params.items) : [];
   return (
     <div className={`issue ${issue.status}`} data-testid={`issue-${issue.id}`}>
@@ -40,7 +55,18 @@ export function IssueItem({ issue, onFix }: { issue: Issue; onFix: FixHandler })
       </span>
       <div>
       <div className="issue-title">
-        <span>{t(issue.title_key, issue.params)}</span>
+        <span className="issue-name">
+          {onSelect && canBatch(issue) && (
+            <input
+              type="checkbox"
+              className="pick"
+              checked={!!selected}
+              aria-label={`${t("ui.results.select_issue")}: ${t(issue.title_key, issue.params)}`}
+              onChange={(e) => onSelect(e.target.checked)}
+            />
+          )}
+          {t(issue.title_key, issue.params)}
+        </span>
         <span className={`badge s-${issue.status}`}>{t(`status.${issue.status}`)}</span>
       </div>
       <p>{t(issue.why_key, issue.params)}</p>

@@ -75,7 +75,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Res
 }
 
 export const api = {
-  startScan: (mode: ScanMode) => call<ScanReport>("start_scan", { mode }),
+  startScan: (mode: ScanMode, categories?: Category[]) =>
+    call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
   cancelScan: () => call<void>("cancel_scan"),
   openWindowsUpdate: () => call<void>("open_windows_update"),
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),

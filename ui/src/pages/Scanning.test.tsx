@@ -48,6 +48,13 @@ describe("Scanning", () => {
     expect(onDone).toHaveBeenCalledWith(report());
   });
 
+  it("passes the chosen areas to the scan", async () => {
+    setup();
+    render(<Scanning mode="quick" categories={["storage"]} onDone={() => undefined} onCancel={() => undefined} />);
+    await flush();
+    expect(api.startScan).toHaveBeenCalledWith("quick", ["storage"]);
+  });
+
   it("cancel stops the scan, returns home, and a late result is ignored", async () => {
     const h = setup();
     const onDone = vi.fn();

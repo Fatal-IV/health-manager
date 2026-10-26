@@ -103,6 +103,37 @@ describe("Results", () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  it("picked fixes go to the batch handler together; startup items cannot be picked", () => {
+    const a = issue({ id: "a", fix: "clean_temp" });
+    const b = issue({ id: "b", fix: "empty_recycle_bin" });
+    const startup = issue({ id: "performance.startup_items", category: "performance", fix: "disable_startup_item", params: { items: "[]" } });
+    const onBulk = vi.fn();
+    render(
+      <Results
+        report={report({ results: [check({ issues: [a, b, startup] })] })}
+        onFix={noop}
+        onReport={noop}
+        onRescan={noop}
+        onBulkFix={onBulk}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: new RegExp(t("ui.results.fix_selected")) })).not.toBeInTheDocument();
+    const boxes = screen.getAllByRole("checkbox");
+    expect(boxes).toHaveLength(2);
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[1]);
+    fireEvent.click(screen.getByRole("button", { name: `${t("ui.results.fix_selected")} (2)` }));
+    expect(onBulk).toHaveBeenCalledTimes(1);
+    expect(onBulk.mock.calls[0][0].map((i: { id: string }) => i.id)).toEqual(["a", "b"]);
+  });
+
+  it("re-scanning one area reports that area", () => {
+    const onArea = vi.fn();
+    render(<Results report={report()} onFix={noop} onReport={noop} onRescan={noop} onRescanArea={onArea} />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.results.rescan_area") }));
+    expect(onArea).toHaveBeenCalledWith("storage");
+  });
+
   it("parseStartupItems ignores garbage", () => {
     expect(parseStartupItems(undefined)).toEqual([]);
     expect(parseStartupItems("not json")).toEqual([]);

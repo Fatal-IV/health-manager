@@ -223,7 +223,9 @@
       "never": "Henüz tarama yapılmadı",
       "welcome_title": "Hoş geldiniz",
       "welcome_body": "Bu uygulama bilgisayarınızı tarar, bulduğu sorunları anlatır ve çözümünü sunar. Her düzeltmeden önce neyin değişeceğini gösterir ve sizden onay ister.",
-      "welcome_ok": "Anladım"
+      "welcome_ok": "Anladım",
+      "areas": "Taranacak alanlar",
+      "pick_one": "Taramak için en az bir alan seç."
     },
     "scanning": {
       "title": "Bilgisayarınız taranıyor…",
@@ -249,10 +251,16 @@
       "why_score": "Neden bu puan?",
       "issues_count": "{{count}} sorun",
       "areas": "Alanlar",
+      "rescan_area": "Bu alanı tara",
+      "fix_selected": "Seçilenleri düzelt",
+      "select_issue": "Seç",
       "open_update": "Windows Update'i aç"
     },
     "fix": {
       "title": "Düzeltmeyi onaylayın",
+      "bulk_title": "Seçilen düzeltmeleri onaylayın",
+      "bulk_count": "{{count}} düzeltme uygulanacak",
+      "bulk_admin": "Yönetici izni gerektirenler için Windows ayrı ayrı izin isteyecek.",
       "admin_note": "Windows sizden izin isteyecek.",
       "reversible": "Bu işlem geri alınabilir.",
       "not_reversible": "Bu işlem geri alınamaz.",

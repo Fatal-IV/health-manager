@@ -62,7 +62,7 @@ export function FixPreview({
   );
 }
 
-function Outcome({ result }: { result: ApplyResult }) {
+export function Outcome({ result }: { result: ApplyResult }) {
   const o = result.outcome;
   if (o.status === "declined") return <p role="status">{t("fix.result.declined")}</p>;
   if (o.status === "applied") {

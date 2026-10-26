@@ -7,6 +7,7 @@ use crate::elevate::FixOutcome;
 use health_core::checks::all_checks;
 use health_core::engine::{run_scan, Check, Progress, ScanMode};
 use health_core::fixes::{fix_plan, validate_arg, FixId, FixPlan};
+use health_core::model::Category;
 use health_core::probe::SystemProbe;
 use health_core::report::{iso_utc, translate, write_report, AppliedFix, ReportFormat, ScanReport};
 use health_core::verify::rescan_verify;
@@ -112,10 +113,14 @@ impl Drop for ScanGuard {
 }
 
 /// Runs a scan and stores the report in the session. Only one scan at a time.
+/// `categories` limits the scan to those areas (`None` = every area). A limited
+/// scan on top of an existing report replaces only the checks it re-ran and
+/// keeps the other results and the applied fixes.
 pub fn scan_and_store(
     state: &AppState,
     probe: &dyn SystemProbe,
     mode: ScanMode,
+    categories: Option<&[Category]>,
     progress: &dyn Fn(Progress),
     now: SystemTime,
 ) -> Result<ScanReport, String> {
@@ -128,14 +133,34 @@ pub fn scan_and_store(
     }
     let _guard = ScanGuard(state.scanning.clone());
     state.cancel.store(false, Ordering::SeqCst);
-    let out = run_scan(&all_checks(), probe, mode, progress, &state.cancel);
-    let report = ScanReport::new(out.results, out.cancelled, now);
+    let checks: Vec<Box<dyn Check>> = all_checks()
+        .into_iter()
+        .filter(|c| categories.is_none_or(|cs| cs.contains(&c.category())))
+        .collect();
+    let out = run_scan(&checks, probe, mode, progress, &state.cancel);
     let mut s = state
         .session
         .lock()
         .map_err(|_| "session lock poisoned".to_string())?;
+    let report = match (categories, s.report.take()) {
+        (Some(_), Some(prev)) => {
+            // Partial scan: keep what was not re-run. A cancelled partial scan
+            // keeps the old result of every check it did not get to.
+            let mut results: Vec<_> = prev
+                .results
+                .into_iter()
+                .filter(|r| !out.results.iter().any(|n| n.check_id == r.check_id))
+                .collect();
+            results.extend(out.results);
+            ScanReport::new(results, prev.cancelled || out.cancelled, now)
+        }
+        (Some(_), None) => ScanReport::new(out.results, out.cancelled, now),
+        (None, _) => {
+            s.applied.clear();
+            ScanReport::new(out.results, out.cancelled, now)
+        }
+    };
     s.report = Some(report.clone());
-    s.applied.clear();
     Ok(report)
 }
 
@@ -149,6 +174,7 @@ pub async fn start_scan(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     mode: ScanMode,
+    categories: Option<Vec<Category>>,
 ) -> Result<ScanReport, String> {
     use tauri::Emitter;
     let inner = AppState {
@@ -163,6 +189,7 @@ pub async fn start_scan(
             &inner,
             &probe,
             mode,
+            categories.as_deref(),
             &|p| {
                 let _ = app.emit("scan-progress", p);
             },
@@ -253,7 +280,7 @@ mod tests {
 
     fn state_with_scan(p: &FakeProbe) -> AppState {
         let st = AppState::default();
-        scan_and_store(&st, p, ScanMode::Quick, &|_| {}, UNIX_EPOCH).unwrap();
+        scan_and_store(&st, p, ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
         st
     }
 
@@ -383,6 +410,7 @@ mod tests {
             &st,
             &FakeProbe::default(),
             ScanMode::Quick,
+            None,
             &|_| {},
             UNIX_EPOCH,
         );
@@ -392,6 +420,7 @@ mod tests {
             &st,
             &FakeProbe::default(),
             ScanMode::Quick,
+            None,
             &|_| {},
             UNIX_EPOCH
         )
@@ -411,6 +440,7 @@ mod tests {
             &st,
             &FakeProbe::default(),
             ScanMode::Quick,
+            None,
             &|_| {},
             UNIX_EPOCH,
         )
@@ -422,6 +452,7 @@ mod tests {
             &st,
             &FakeProbe::default(),
             ScanMode::Quick,
+            None,
             &move |_| cancel.store(true, Ordering::SeqCst),
             UNIX_EPOCH,
         )
@@ -448,7 +479,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(st.session.lock().unwrap().applied.len(), 1);
-        scan_and_store(&st, &p, ScanMode::Quick, &|_| {}, UNIX_EPOCH).unwrap();
+        scan_and_store(&st, &p, ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
         assert!(st.session.lock().unwrap().applied.is_empty());
     }
 
@@ -484,7 +515,7 @@ mod tests {
     fn scan_fix_verify_flow() {
         let before = FakeProbe { temp_bytes: 2 * GIB, ..Default::default() };
         let st = AppState::default();
-        let first = scan_and_store(&st, &before, ScanMode::Quick, &|_| {}, UNIX_EPOCH).unwrap();
+        let first = scan_and_store(&st, &before, ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
         let issue = first
             .results
             .iter()
@@ -528,5 +559,60 @@ mod tests {
         let plan = plan_for("reset_windows_update", None).unwrap();
         assert!(plan.needs_admin);
         assert!(plan_for("end_process", Some("4")).is_err());
+    }
+
+    #[test]
+    fn limited_scan_runs_only_those_areas() {
+        let st = AppState::default();
+        let r = scan_and_store(
+            &st,
+            &FakeProbe::default(),
+            ScanMode::Quick,
+            Some(&[Category::Security]),
+            &|_| {},
+            UNIX_EPOCH,
+        )
+        .unwrap();
+        assert!(!r.results.is_empty());
+        assert!(r.results.iter().all(|x| x.category == Category::Security));
+    }
+
+    #[test]
+    fn limited_rescan_replaces_only_its_checks_and_keeps_the_rest() {
+        let st = AppState::default();
+        let full = scan_and_store(&st, &FakeProbe::default(), ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
+        st.session.lock().unwrap().applied.push(AppliedFix {
+            fix: FixId::CleanTemp,
+            outcome: "applied".into(),
+            at: "t".into(),
+        });
+        let part = scan_and_store(
+            &st,
+            &FakeProbe::default(),
+            ScanMode::Quick,
+            Some(&[Category::Storage]),
+            &|_| {},
+            UNIX_EPOCH,
+        )
+        .unwrap();
+        assert_eq!(part.results.len(), full.results.len(), "nothing lost, nothing duplicated");
+        let mut ids: Vec<_> = part.results.iter().map(|r| r.check_id.clone()).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), part.results.len());
+        assert_eq!(st.session.lock().unwrap().applied.len(), 1, "a partial rescan keeps applied fixes");
+    }
+
+    #[test]
+    fn full_scan_clears_applied_fixes() {
+        let st = AppState::default();
+        scan_and_store(&st, &FakeProbe::default(), ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
+        st.session.lock().unwrap().applied.push(AppliedFix {
+            fix: FixId::CleanTemp,
+            outcome: "applied".into(),
+            at: "t".into(),
+        });
+        scan_and_store(&st, &FakeProbe::default(), ScanMode::Quick, None, &|_| {}, UNIX_EPOCH).unwrap();
+        assert!(st.session.lock().unwrap().applied.is_empty());
     }
 }

@@ -29,7 +29,7 @@ describe("api", () => {
     await api.getFixPlan("clean_temp");
     await api.exportReport("pdf", "C:\\x\\r.pdf");
     expect(mocked.mock.calls).toEqual([
-      ["start_scan", { mode: "deep" }],
+      ["start_scan", { mode: "deep", categories: null }],
       ["get_fix_plan", { fix: "disable_startup_item", arg: "HKCU|a" }],
       ["get_fix_plan", { fix: "clean_temp", arg: null }],
       ["export_report", { format: "pdf", path: "C:\\x\\r.pdf" }],

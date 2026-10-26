@@ -40,6 +40,23 @@ describe("Home", () => {
     expect(onStart).toHaveBeenCalledWith("deep");
   });
 
+  it("a subset of areas is passed on, in a stable order", () => {
+    const onStart = vi.fn();
+    render(<Home onStart={onStart} />);
+    fireEvent.click(screen.getByLabelText(t("category.update")));
+    fireEvent.click(screen.getByLabelText(t("category.system")));
+    fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
+    expect(onStart).toHaveBeenCalledWith("quick", ["security", "storage", "performance"]);
+  });
+
+  it("with no area selected the scan cannot start", () => {
+    const onStart = vi.fn();
+    render(<Home onStart={onStart} />);
+    for (const c of ["security", "update", "storage", "performance", "system"]) fireEvent.click(screen.getByLabelText(t(`category.${c}`)));
+    expect(screen.getByRole("button", { name: t("ui.home.start") })).toBeDisabled();
+    expect(screen.getByText(t("ui.home.pick_one"))).toBeInTheDocument();
+  });
+
   it("shows no score and 'never scanned' before the first scan, the score after", () => {
     const { rerender } = render(<Home onStart={() => undefined} />);
     expect(screen.getByRole("img")).toHaveAttribute("aria-label", `${t("ui.results.score")}: —`);

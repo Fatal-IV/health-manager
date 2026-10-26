@@ -1,9 +1,10 @@
 import { Info, Play } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { ScanMode } from "../api";
+import type { Category, ScanMode } from "../api";
 import { ScoreRing } from "../components/ScoreRing";
 import { t } from "../i18n";
 
+const AREAS: Category[] = ["security", "update", "storage", "performance", "system"];
 const WELCOME_KEY = "saglik-denetimi.welcomed";
 
 function alreadyWelcomed(): boolean {
@@ -27,12 +28,20 @@ export function Home({
   lastScan,
   score,
 }: {
-  onStart: (mode: ScanMode) => void;
+  onStart: (mode: ScanMode, categories?: Category[]) => void;
   lastScan?: string;
   score?: number | null;
 }) {
   const [welcome, setWelcome] = useState(() => !alreadyWelcomed());
   const [deep, setDeep] = useState(false);
+  const [areas, setAreas] = useState<Category[]>(AREAS);
+  const toggleArea = (c: Category) => setAreas((a) => (a.includes(c) ? a.filter((x) => x !== c) : [...a, c]));
+  const start = () => {
+    const mode: ScanMode = deep ? "deep" : "quick";
+    // Every area selected is the plain full scan.
+    if (areas.length === AREAS.length) onStart(mode);
+    else onStart(mode, AREAS.filter((c) => areas.includes(c)));
+  };
   return (
     <main>
       {welcome && (
@@ -60,11 +69,21 @@ export function Home({
           <h1>{t("ui.home.title")}</h1>
           <p className="lead">{t("ui.home.subtitle")}</p>
           <div className="cta">
-            <button type="button" className="primary big" onClick={() => onStart(deep ? "deep" : "quick")}>
+            <button type="button" className="primary big" disabled={areas.length === 0} onClick={start}>
               <Play size={18} weight="fill" aria-hidden />
               {t("ui.home.start")}
             </button>
           </div>
+          <fieldset className="areas">
+            <legend>{t("ui.home.areas")}</legend>
+            {AREAS.map((c) => (
+              <label key={c} className={`chip${areas.includes(c) ? " on" : ""}`}>
+                <input type="checkbox" checked={areas.includes(c)} onChange={() => toggleArea(c)} />
+                {t(`category.${c}`)}
+              </label>
+            ))}
+          </fieldset>
+          {areas.length === 0 && <p className="muted">{t("ui.home.pick_one")}</p>}
           <label className="toggle">
             <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
             <span className="switch" aria-hidden />

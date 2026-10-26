@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
 import { api } from "./api";
 import { t } from "./i18n";
-import { applied, check, plan, report } from "./testing/fixtures";
+import { applied, check, issue, plan, report } from "./testing/fixtures";
 
 vi.mock("./api", async (orig) => {
   const real = await orig<typeof import("./api")>();
@@ -35,6 +35,43 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByText(t("app.title"))).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("ui.home.start") })).toBeInTheDocument();
+  });
+
+  it("batch: pick two fixes, one preview, one confirmation, each fix applied in turn", async () => {
+    const a = issue({ id: "a", fix: "clean_temp" });
+    const b = issue({ id: "b", fix: "empty_recycle_bin" });
+    vi.mocked(api.startScan).mockResolvedValue({ ok: true, value: report({ results: [check({ issues: [a, b] })] }) });
+    vi.mocked(api.getFixPlan).mockImplementation(async (fix) => ({ ok: true, value: plan({ fix }) }));
+    vi.mocked(api.applyFix).mockResolvedValue({ ok: true, value: applied({ verified: true, report: null }) });
+    vi.mocked(api.getSession).mockResolvedValue({ ok: true, value: { report: null, applied: [] } });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
+    await flush();
+    await screen.findByText(t("ui.results.title"));
+    for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
+    fireEvent.click(screen.getByRole("button", { name: `${t("ui.results.fix_selected")} (2)` }));
+    await flush();
+    expect(await screen.findByText(t("ui.fix.bulk_title"))).toBeInTheDocument();
+    expect(api.applyFix).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: t("ui.fix.confirm") }));
+    await flush();
+    await flush();
+    expect(vi.mocked(api.applyFix).mock.calls.map((c) => c[0])).toEqual(["clean_temp", "empty_recycle_bin"]);
+    expect(screen.getAllByText(t("ui.fix.verified"))).toHaveLength(2);
+  });
+
+  it("re-scanning one area asks for just that area and keeps the results view", async () => {
+    vi.mocked(api.startScan).mockResolvedValue({ ok: true, value: report() });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
+    await flush();
+    await screen.findByText(t("ui.results.title"));
+    fireEvent.click(screen.getByRole("button", { name: t("ui.results.rescan_area") }));
+    await flush();
+    expect(api.startScan).toHaveBeenLastCalledWith("quick", ["storage"]);
+    expect(await screen.findByText(t("ui.results.title"))).toBeInTheDocument();
   });
 
   it("scan -> preview -> confirm -> verified -> results shows the updated report", async () => {

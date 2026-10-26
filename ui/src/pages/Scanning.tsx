@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Progress, type ScanMode, type ScanReport } from "../api";
+import { api, type Category, type Progress, type ScanMode, type ScanReport } from "../api";
 import { t } from "../i18n";
 
 export function Scanning({
   mode,
+  categories,
   onDone,
   onCancel,
 }: {
   mode: ScanMode;
+  categories?: Category[];
   onDone: (r: ScanReport) => void;
   onCancel: () => void;
 }) {
@@ -31,7 +33,7 @@ export function Scanning({
     // React StrictMode runs effects twice in development; one scan only.
     if (!started.current) {
       started.current = true;
-      api.startScan(mode).then((r) => {
+      (categories ? api.startScan(mode, categories) : api.startScan(mode)).then((r) => {
         if (!alive.current || cancelled.current) return;
         if (r.ok) onDone(r.value);
         else setError(r.error === "scan_in_progress" ? t("ui.scanning.busy") : t("ui.scanning.failed"));
