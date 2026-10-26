@@ -22,7 +22,8 @@ function rewrite(file, pattern) {
 
 rewrite("src-tauri/tauri.conf.json", /("version":\s*")[^"]+(")/);
 rewrite("ui/package.json", /("version":\s*")[^"]+(")/);
-for (const c of ["src-tauri", "crates/fix-helper", "crates/health-core"]) {
+rewrite("setup/src-tauri/tauri.conf.json", /("version":\s*")[^"]+(")/);
+for (const c of ["src-tauri", "setup/src-tauri", "crates/fix-helper", "crates/health-core"]) {
   rewrite(`${c}/Cargo.toml`, /^(version = ")[^"]+(")/m);
 }
 console.log(`version -> ${next}`);

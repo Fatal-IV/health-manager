@@ -1,0 +1,85 @@
+{
+  "product": {
+    "name": "Sağlık Denetimi",
+    "slug": "SaglikDenetimi",
+    "publisher": "Fatal",
+    "description": "Windows bilgisayarınızın sağlığını kontrol eder.",
+    "exe": "saglik-denetimi.exe",
+    "helper": "fix-helper.exe",
+    "folder": "Sağlık Denetimi"
+  },
+  "theme": {
+    "accent": "#ff4a1c",
+    "accent-hover": "#ff6238",
+    "accent-text": "#1a0600",
+    "ink": "#141416",
+    "muted": "#6d7078",
+    "bg-from": "#f3f4f6",
+    "bg-to": "#dcdde2",
+    "danger": "#c42b1c"
+  },
+  "texts": {
+    "close": "Kapat",
+    "tagline": "Bilgisayarınızın sağlığını tek tıkla kontrol eder",
+    "desktop_shortcut": "Masaüstüne kısayol ekle",
+    "no_payload": "Bu kurucu uygulama dosyalarını içermiyor. Lütfen resmi sürümü indirin.",
+    "log_prefix": "Ayrıntılar",
+    "install": {
+      "title": "{{name}}",
+      "sub": "{{tagline}}",
+      "button": "Kur",
+      "terms": "Kur'a basarak kullanım koşullarını kabul edersiniz.",
+      "working": "Kuruluyor…",
+      "done_title": "Hazır",
+      "done_text": "İlk taramayı başlatmak için uygulamayı açın.",
+      "done_button": "{{name}}'i aç"
+    },
+    "update": {
+      "title": "{{name}}",
+      "sub": "Sürüm {{installed}} → {{version}}",
+      "button": "Güncelle",
+      "terms": "Ayarlarınız ve verileriniz korunur.",
+      "working": "Güncelleniyor…",
+      "done_title": "Güncellendi",
+      "done_text": "Sürüm {{version}} kuruldu.",
+      "done_button": "{{name}}'i aç"
+    },
+    "reinstall": {
+      "title": "{{name}}",
+      "sub": "Zaten kurulu (sürüm {{installed}})",
+      "button": "Yeniden kur",
+      "terms": "Dosyalar yeniden yazılır, ayarlarınız korunur.",
+      "working": "Yeniden kuruluyor…",
+      "done_title": "Hazır",
+      "done_text": "Sürüm {{version}} kuruldu.",
+      "done_button": "{{name}}'i aç"
+    },
+    "uninstall": {
+      "title": "{{name}}",
+      "sub": "Bu bilgisayardan kaldırılacak.",
+      "button": "Kaldır",
+      "terms": "Dışa aktardığınız raporlar silinmez.",
+      "working": "Kaldırılıyor…",
+      "done_title": "Kaldırıldı",
+      "done_text": "{{name}} bu bilgisayardan kaldırıldı.",
+      "done_button": "Kapat"
+    },
+    "steps": {
+      "prepare": "Hazırlanıyor…",
+      "app": "Uygulama kopyalanıyor…",
+      "helper": "Yardımcı program kopyalanıyor…",
+      "uninstaller": "Kaldırıcı hazırlanıyor…",
+      "shortcuts": "Kısayollar oluşturuluyor…",
+      "register": "Kayıt tamamlanıyor…",
+      "remove_files": "Dosyalar siliniyor…",
+      "remove_shortcuts": "Kısayollar kaldırılıyor…",
+      "remove_register": "Kayıt siliniyor…"
+    },
+    "errors": {
+      "title": "İşlem tamamlanamadı",
+      "retry": "Yeniden dene",
+      "locked": "{{name}} şu an açık görünüyor. Kapatıp yeniden deneyin.",
+      "generic": "Beklenmeyen bir hata oluştu."
+    }
+  }
+}

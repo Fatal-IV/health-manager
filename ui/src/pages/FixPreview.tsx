@@ -1,6 +1,12 @@
 import { ArrowRight, CheckCircle, WarningCircle, XCircle } from "@phosphor-icons/react";
 import type { ApplyResult, FixPlan } from "../api";
-import { t } from "../i18n";
+import { has, t } from "../i18n";
+
+/** A fix may bring its own wording (`fix.<id>.<part>`); otherwise the general text is used. */
+function own(fix: string | undefined, part: string, general: string): string {
+  const key = fix ? `fix.${fix}.${part}` : "";
+  return key && has(key) ? t(key) : t(general);
+}
 
 /**
  * Shows what a fix will change and asks for confirmation; after the fix ran it
@@ -24,7 +30,7 @@ export function FixPreview({
   const params = plan.params;
   return (
     <main>
-      <h1>{t("ui.fix.title")}</h1>
+      <h1>{own(plan.fix, "title", "ui.fix.title")}</h1>
       <section className="card">
         <h2>{t(plan.summary_key, params)}</h2>
 
@@ -42,7 +48,7 @@ export function FixPreview({
             <p className="muted">{plan.reversible ? t("ui.fix.reversible") : t("ui.fix.not_reversible")}</p>
             <div className="row">
               <button type="button" className="primary" disabled={busy} onClick={onConfirm}>
-                {busy ? t("ui.fix.working") : t("ui.fix.confirm")}
+                {busy ? own(plan.fix, "working", "ui.fix.working") : own(plan.fix, "confirm", "ui.fix.confirm")}
               </button>
               <button type="button" disabled={busy} onClick={onCancel}>
                 {t("ui.fix.cancel")}
@@ -51,7 +57,7 @@ export function FixPreview({
           </>
         )}
 
-        {result && <Outcome result={result} />}
+        {result && <Outcome result={result} fix={plan.fix} />}
         {result && (
           <button type="button" className="primary" onClick={onDone}>
             {t("ui.fix.done")}
@@ -62,7 +68,7 @@ export function FixPreview({
   );
 }
 
-export function Outcome({ result }: { result: ApplyResult }) {
+export function Outcome({ result, fix }: { result: ApplyResult; fix?: string }) {
   const o = result.outcome;
   if (o.status === "declined") return <p role="status">{t("fix.result.declined")}</p>;
   if (o.status === "applied") {
@@ -76,7 +82,7 @@ export function Outcome({ result }: { result: ApplyResult }) {
         <div>
           <p>{t(o.message, o.params)}</p>
           <p className={result.verified ? "s-good" : "s-warning"}>
-            {result.verified ? t("ui.fix.verified") : t("ui.fix.unverified")}
+            {result.verified ? own(fix, "verified", "ui.fix.verified") : t("ui.fix.unverified")}
           </p>
         </div>
       </div>

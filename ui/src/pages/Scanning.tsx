@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { api, type Category, type Progress, type ScanMode, type ScanReport } from "../api";
 import { t } from "../i18n";
 
+/** What is being done decides the heading: one area, a few areas, a deep run or everything. */
+export function scanTitleKey(mode: ScanMode, categories?: Category[]): string {
+  if (categories && categories.length === 1) return `ui.scanning.title_area.${categories[0]}`;
+  if (categories && categories.length > 1) return "ui.scanning.title_some";
+  return mode === "deep" ? "ui.scanning.title_deep" : "ui.scanning.title";
+}
+
 export function Scanning({
   mode,
   categories,
@@ -52,6 +59,7 @@ export function Scanning({
     onCancel();
   };
 
+  const title = t(scanTitleKey(mode, categories));
   const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
   return (
     <div className="stage home">
@@ -60,8 +68,8 @@ export function Scanning({
         <p className="bignum-sub">%</p>
       </div>
       <section className="pane home-pane">
-      <h1>{t("ui.scanning.title")}</h1>
-      <progress value={pct} max={100} aria-label={t("ui.scanning.title")} />
+      <h1>{title}</h1>
+      <progress value={pct} max={100} aria-label={title} />
       <p className="muted" aria-live="polite">
         {progress ? (
           <>

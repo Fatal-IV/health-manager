@@ -17,6 +17,7 @@ vi.mock("./api", async (orig) => {
       exportReport: vi.fn(),
       onProgress: vi.fn(),
       checkUpdate: vi.fn(),
+      getSystemSummary: vi.fn(),
       installUpdate: vi.fn(),
     },
   };
@@ -32,6 +33,7 @@ describe("App", () => {
     vi.mocked(api.onProgress).mockResolvedValue(() => undefined);
     vi.mocked(api.cancelScan).mockResolvedValue({ ok: true, value: undefined });
     vi.mocked(api.checkUpdate).mockResolvedValue({ ok: true, value: null });
+    vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: false, error: "none" });
   });
 
   it("renders app title and the start screen", () => {

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kurulum</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="card" data-tauri-drag-region>
+      <button type="button" id="close" class="close" aria-label="Kapat">✕</button>
+
+      <section id="ready" class="panel" data-tauri-drag-region>
+        <img class="logo" src="logo.svg" alt="" width="84" height="84" />
+        <h1 id="ready-title"></h1>
+        <p id="ready-sub" class="muted"></p>
+        <label id="desktop-row" class="check"><input type="checkbox" id="desktop" /><span id="desktop-label"></span></label>
+        <button type="button" id="go" class="primary"></button>
+        <p id="ready-terms" class="muted small"></p>
+      </section>
+
+      <section id="working" class="panel" hidden>
+        <img class="logo" src="logo.svg" alt="" width="84" height="84" />
+        <h1 id="working-title"></h1>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="fill"></div></div>
+        <p id="status" class="muted small"></p>
+      </section>
+
+      <section id="done" class="panel" hidden>
+        <div class="badge ok" aria-hidden="true">✓</div>
+        <h1 id="done-title"></h1>
+        <p id="done-text" class="muted"></p>
+        <button type="button" id="finish" class="primary"></button>
+      </section>
+
+      <section id="error" class="panel" hidden>
+        <div class="badge bad" aria-hidden="true">!</div>
+        <h1 id="error-title"></h1>
+        <p id="error-text" class="muted" role="alert"></p>
+        <div class="row">
+          <button type="button" id="error-close" class="quiet"></button>
+          <button type="button" id="retry" class="primary"></button>
+        </div>
+        <p id="error-detail" class="muted tiny"></p>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

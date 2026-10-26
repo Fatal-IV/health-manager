@@ -3,16 +3,6 @@
     "beforeBuildCommand": "node ../scripts/prepare-helper.mjs && npm --prefix ../ui run build"
   },
   "bundle": {
-    "externalBin": ["binaries/fix-helper"],
-    "targets": ["nsis"],
-    "publisher": "Fatal",
-    "shortDescription": "Windows bilgisayarınızın sağlığını kontrol eder ve sorunları sade bir dille anlatır.",
-    "windows": {
-      "nsis": {
-        "installMode": "currentUser",
-        "languages": ["Turkish"],
-        "displayLanguageSelector": false
-      }
-    }
+    "externalBin": ["binaries/fix-helper"]
   }
 }

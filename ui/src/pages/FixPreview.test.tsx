@@ -12,6 +12,13 @@ function show(over: Partial<React.ComponentProps<typeof FixPreview>> = {}) {
 }
 
 describe("FixPreview", () => {
+  it("a fix with its own wording uses it instead of the general repair text", () => {
+    show({ plan: plan({ fix: "read_boot_time", summary_key: "fix.read_boot_time.summary", changes: ["fix.read_boot_time.change.1"] }) });
+    expect(screen.getByRole("heading", { name: t("fix.read_boot_time.title") })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t("fix.read_boot_time.confirm") })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t("ui.fix.confirm") })).not.toBeInTheDocument();
+  });
+
   it("lists what will change before asking for confirmation", () => {
     const onConfirm = vi.fn();
     show({ onConfirm });

@@ -8,5 +8,8 @@ i18next.init({
   interpolation: { escapeValue: false },
 });
 
+/** True when the text exists, so a screen can use a specific wording and fall back to the general one. */
+export const has = (key: string): boolean => i18next.exists(key);
+
 export const t = (key: string, opts?: Record<string, unknown>): string =>
   i18next.t(key, opts) as string;

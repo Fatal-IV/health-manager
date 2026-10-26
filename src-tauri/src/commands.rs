@@ -210,6 +210,18 @@ pub async fn start_scan(
     .map_err(|e| e.to_string())?
 }
 
+/// A few facts for the start screen (system, uptime, disk, memory). Reads only; what cannot be read is left out.
+#[tauri::command]
+pub async fn get_system_summary() -> Result<health_core::summary::SystemSummary, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let (os, uptime) = health_core::summary::host_facts();
+        let drive = std::env::var("SystemDrive").ok();
+        health_core::summary::summarize(&make_probe(), os, uptime, drive.as_deref())
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 /// Opens the Windows Update page of Settings. The URI is fixed, nothing from the UI reaches the command line.
 #[tauri::command]
 pub fn open_windows_update() -> Result<(), String> {

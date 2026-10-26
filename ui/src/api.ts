@@ -64,6 +64,14 @@ export interface Progress {
   category: Category;
 }
 
+/** What the start screen shows before any scan; a value that could not be read is null. */
+export interface SystemSummary {
+  os: string | null;
+  uptime_secs: number | null;
+  disk: { mount: string; free_bytes: number; total_bytes: number } | null;
+  memory: { used_bytes: number; total_bytes: number } | null;
+}
+
 /** An available newer release; the download links stay on the Rust side. */
 export interface UpdateInfo {
   version: string;
@@ -84,6 +92,7 @@ export const api = {
   startScan: (mode: ScanMode, categories?: Category[]) =>
     call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
   cancelScan: () => call<void>("cancel_scan"),
+  getSystemSummary: () => call<SystemSummary>("get_system_summary"),
   checkUpdate: () => call<UpdateInfo | null>("check_update"),
   installUpdate: () => call<void>("install_update"),
   openWindowsUpdate: () => call<void>("open_windows_update"),

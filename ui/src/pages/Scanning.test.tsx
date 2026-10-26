@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { api, type Progress, type Result, type ScanReport } from "../api";
 import { t } from "../i18n";
 import { report } from "../testing/fixtures";
-import { Scanning } from "./Scanning";
+import { Scanning, scanTitleKey } from "./Scanning";
 
 vi.mock("../api", async (orig) => {
   const real = await orig<typeof import("../api")>();
@@ -26,6 +26,18 @@ function setup() {
 
 describe("Scanning", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("names what is being done instead of always saying the whole computer is scanned", async () => {
+    expect(scanTitleKey("quick")).toBe("ui.scanning.title");
+    expect(scanTitleKey("deep")).toBe("ui.scanning.title_deep");
+    expect(scanTitleKey("quick", ["update"])).toBe("ui.scanning.title_area.update");
+    expect(scanTitleKey("deep", ["update", "storage"])).toBe("ui.scanning.title_some");
+    setup();
+    render(<Scanning mode="quick" categories={["update"]} onDone={() => undefined} onCancel={() => undefined} />);
+    await flush();
+    expect(screen.getByRole("heading", { name: t("ui.scanning.title_area.update") })).toBeInTheDocument();
+    expect(t("ui.scanning.title_area.update")).toBe("Güncellemeler denetleniyor…");
+  });
 
   it("shows category progress from events", async () => {
     const h = setup();

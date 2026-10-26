@@ -1,28 +1,47 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { api, type SystemSummary } from "../api";
 import { t } from "../i18n";
-import { Home } from "./Home";
+import { Home, summaryTiles } from "./Home";
+
+const GIB = 1024 ** 3;
+const flush = () => act(async () => undefined);
+const full: SystemSummary = {
+  os: "Windows 11 Home Single Language",
+  uptime_secs: 3 * 86400,
+  disk: { mount: "C:", free_bytes: 142 * GIB, total_bytes: 237 * GIB },
+  memory: { used_bytes: 8 * GIB, total_bytes: 16 * GIB },
+};
+
+const openOptions = () => fireEvent.click(screen.getByRole("button", { name: t("ui.home.edit") }));
 
 describe("Home", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    vi.spyOn(api, "getSystemSummary").mockResolvedValue({ ok: false, error: "none" });
+  });
+  afterEach(() => vi.restoreAllMocks());
 
-  it("shows the first-run welcome only once", () => {
-    const first = render(<Home onStart={() => undefined} />);
-    expect(screen.getByText(t("ui.home.welcome_body"))).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: t("ui.home.welcome_ok") }));
-    expect(screen.queryByText(t("ui.home.welcome_body"))).not.toBeInTheDocument();
-    first.unmount();
-
+  it("says up front that nothing changes without approval", () => {
     render(<Home onStart={() => undefined} />);
-    expect(screen.queryByText(t("ui.home.welcome_body"))).not.toBeInTheDocument();
+    expect(screen.getByText(t("ui.home.trust"))).toBeInTheDocument();
   });
 
-  it("still renders when storage is unavailable", () => {
-    const spy = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
+  it("shows the computer summary once it has been read", async () => {
+    vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: true, value: full });
     render(<Home onStart={() => undefined} />);
-    expect(screen.getByText(t("ui.home.welcome_body"))).toBeInTheDocument();
-    spy.mockRestore();
+    await flush();
+    const list = screen.getByRole("list", { name: t("ui.home.summary") });
+    expect(list).toHaveTextContent("11 Home");
+    expect(list).toHaveTextContent("3 gün");
+    expect(list).toHaveTextContent("142 GB");
+    expect(list).toHaveTextContent("%50");
+  });
+
+  it("a fact that could not be read is left out, and no summary at all is no empty box", async () => {
+    expect(summaryTiles({ os: null, uptime_secs: null, disk: null, memory: null })).toEqual([]);
+    expect(summaryTiles({ ...full, disk: null, memory: null }).map((x) => x.key)).toEqual(["os", "uptime"]);
+    render(<Home onStart={() => undefined} />);
+    await flush();
+    expect(screen.queryByRole("list", { name: t("ui.home.summary") })).not.toBeInTheDocument();
   });
 
   it("start button asks for a quick scan", () => {
@@ -32,9 +51,18 @@ describe("Home", () => {
     expect(onStart).toHaveBeenCalledWith("quick");
   });
 
+  it("areas and the deep option are tucked away until asked for", () => {
+    render(<Home onStart={() => undefined} />);
+    expect(screen.queryByLabelText(t("ui.home.deep"))).not.toBeInTheDocument();
+    expect(screen.getByText(new RegExp(t("ui.home.areas_count", { count: 5 })))).toBeInTheDocument();
+    openOptions();
+    expect(screen.getByLabelText(t("ui.home.deep"))).toBeInTheDocument();
+  });
+
   it("deep scan option asks for a deep scan", () => {
     const onStart = vi.fn();
     render(<Home onStart={onStart} />);
+    openOptions();
     fireEvent.click(screen.getByLabelText(t("ui.home.deep")));
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     expect(onStart).toHaveBeenCalledWith("deep");
@@ -43,6 +71,7 @@ describe("Home", () => {
   it("a subset of areas is passed on, in a stable order", () => {
     const onStart = vi.fn();
     render(<Home onStart={onStart} />);
+    openOptions();
     fireEvent.click(screen.getByLabelText(t("category.update")));
     fireEvent.click(screen.getByLabelText(t("category.system")));
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
@@ -52,17 +81,17 @@ describe("Home", () => {
   it("with no area selected the scan cannot start", () => {
     const onStart = vi.fn();
     render(<Home onStart={onStart} />);
+    openOptions();
     for (const c of ["security", "update", "storage", "performance", "system"]) fireEvent.click(screen.getByLabelText(t(`category.${c}`)));
     expect(screen.getByRole("button", { name: t("ui.home.start") })).toBeDisabled();
     expect(screen.getByText(t("ui.home.pick_one"))).toBeInTheDocument();
   });
 
-  it("shows no score and 'never scanned' before the first scan, the score after", () => {
+  it("says 'never scanned' before the first scan, the last score and time after", () => {
     const { rerender } = render(<Home onStart={() => undefined} />);
-    expect(screen.getByRole("img")).toHaveAttribute("aria-label", `${t("ui.results.score")}: —`);
-    expect(screen.getByText(t("ui.home.never"))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(t("ui.home.never")))).toBeInTheDocument();
     rerender(<Home onStart={() => undefined} score={87} lastScan="2026-10-24T09:30:00Z" />);
-    expect(screen.getByRole("img")).toHaveAttribute("aria-label", `${t("ui.results.score")}: 87`);
-    expect(screen.queryByText(t("ui.home.never"))).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(t("ui.home.never")))).not.toBeInTheDocument();
+    expect(screen.getByText(new RegExp(t("ui.home.score_line", { score: 87 })))).toBeInTheDocument();
   });
 });
