@@ -42,6 +42,7 @@ describe("i18n", () => {
       "enable_defender_realtime",
       "enable_firewall",
       "run_sfc_dism",
+      "read_boot_time",
     ]) {
       expect(typeof lookup(`fix.${f}.summary`)).toBe("string");
     }

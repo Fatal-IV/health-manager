@@ -17,8 +17,6 @@ fn main() {
             commands::start_scan,
             commands::cancel_scan,
             commands::open_windows_update,
-            commands::is_admin,
-            commands::relaunch_as_admin,
             commands::get_fix_plan,
             commands::apply_fix_cmd,
             commands::get_session,

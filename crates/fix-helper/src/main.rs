@@ -110,7 +110,7 @@ fn real_main() -> i32 {
         Ok(rep) => (
             FixResult {
                 ok: true,
-                message: keys::OK,
+                message: rep.message.unwrap_or(keys::OK),
                 params: rep.params,
                 log: rep.log.join("\n"),
             },

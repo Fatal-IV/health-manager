@@ -80,29 +80,35 @@ impl Check for BootTimeCheck {
         Category::System
     }
     fn scan(&self, p: &dyn SystemProbe) -> Result<Vec<Issue>, ProbeError> {
-        let Some(secs) = p.boot_seconds()? else {
-            // No boot event is not "healthy": say it is unknown.
-            return Ok(vec![issue(
-                "system.boot_unknown",
-                "boot_unknown",
-                Status::Unknown,
-                "no boot performance event found".into(),
-                BTreeMap::new(),
-                None,
-            )]);
-        };
-        if secs <= BOOT_WARN_SECS {
-            return Ok(Vec::new());
-        }
-        Ok(vec![issue(
-            "system.boot",
-            "boot",
-            Status::Warning,
-            format!("last boot took {secs} s"),
-            BTreeMap::from([("seconds".to_string(), secs.to_string())]),
-            None,
-        )])
+        Ok(boot_issues(p.boot_seconds()?))
     }
+}
+
+/// Issues for a boot duration; `None` = the event log gave no reading.
+/// Shared with the elevated read, which feeds a measured value in afterwards.
+pub fn boot_issues(secs: Option<u32>) -> Vec<Issue> {
+    let Some(secs) = secs else {
+        // No boot event is not "healthy": say it is unknown. An administrator can still read it.
+        return vec![issue(
+            "system.boot_unknown",
+            "boot_unknown",
+            Status::Unknown,
+            "no boot performance event found".into(),
+            BTreeMap::new(),
+            Some(FixId::ReadBootTime),
+        )];
+    };
+    if secs <= BOOT_WARN_SECS {
+        return Vec::new();
+    }
+    vec![issue(
+        "system.boot",
+        "boot",
+        Status::Warning,
+        format!("last boot took {secs} s"),
+        BTreeMap::from([("seconds".to_string(), secs.to_string())]),
+        None,
+    )]
 }
 
 impl Check for IntegrityCheck {

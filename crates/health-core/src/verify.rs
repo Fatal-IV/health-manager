@@ -79,6 +79,21 @@ pub fn rescan_verify(
     (merged, verified)
 }
 
+/// Puts a boot duration measured by the elevated helper in place of the "could
+/// not be measured" result. A re-scan cannot do this: the unelevated app is the
+/// one that got no reading. Returns the merged report and whether it was applied.
+pub fn merge_boot_reading(prev: &ScanReport, secs: u32, now: SystemTime) -> (ScanReport, bool) {
+    let mut results = prev.results.clone();
+    let Some(slot) = results.iter_mut().find(|r| r.check_id == "system.boot") else {
+        return (prev.clone(), false);
+    };
+    slot.issues = crate::checks::system::boot_issues(Some(secs));
+    slot.error = None;
+    let mut merged = ScanReport::new(results, prev.cancelled, now);
+    merged.scanned_at = prev.scanned_at.clone();
+    (merged, true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -206,6 +221,26 @@ mod tests {
         );
         assert!(has_fix(&merged, FixId::EmptyRecycleBin));
         assert!(!has_fix(&merged, FixId::CleanTemp));
+    }
+
+    #[test]
+    fn measured_boot_time_replaces_the_unknown_result() {
+        let p = FakeProbe {
+            boot_seconds: None,
+            ..Default::default()
+        };
+        let prev = scan(&p);
+        assert!(has_fix(&prev, FixId::ReadBootTime));
+
+        let (slow, applied) = merge_boot_reading(&prev, 120, UNIX_EPOCH);
+        assert!(applied);
+        assert!(!has_fix(&slow, FixId::ReadBootTime));
+        let issue = slow.results.iter().flat_map(|r| &r.issues).find(|i| i.id == "system.boot").unwrap();
+        assert_eq!(issue.params.get("seconds").map(String::as_str), Some("120"));
+
+        let (fast, _) = merge_boot_reading(&prev, 20, UNIX_EPOCH);
+        let ids: Vec<_> = fast.results.iter().flat_map(|r| &r.issues).map(|i| i.id.as_str()).collect();
+        assert!(!ids.contains(&"system.boot") && !ids.contains(&"system.boot_unknown"));
     }
 
     #[test]

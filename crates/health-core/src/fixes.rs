@@ -24,10 +24,13 @@ pub enum FixId {
     EnableDefenderRealtime,
     EnableFirewall,
     RunSfcDism,
+    /// Read-only: reads the boot duration from the event log, which Windows only
+    /// shows to administrators. Changes nothing on the system.
+    ReadBootTime,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 9] = [
+    pub const ALL: [FixId; 10] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -37,6 +40,7 @@ impl FixId {
         FixId::EnableDefenderRealtime,
         FixId::EnableFirewall,
         FixId::RunSfcDism,
+        FixId::ReadBootTime,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -53,6 +57,7 @@ impl FixId {
             FixId::EnableDefenderRealtime => 6,
             FixId::EnableFirewall => 7,
             FixId::RunSfcDism => 8,
+            FixId::ReadBootTime => 9,
         }
     }
 
@@ -66,7 +71,8 @@ impl FixId {
             | FixId::ResetWindowsUpdate
             | FixId::EnableDefenderRealtime
             | FixId::EnableFirewall
-            | FixId::RunSfcDism => false,
+            | FixId::RunSfcDism
+            | FixId::ReadBootTime => false,
         }
     }
 
@@ -81,6 +87,7 @@ impl FixId {
             FixId::EnableDefenderRealtime => "enable_defender_realtime",
             FixId::EnableFirewall => "enable_firewall",
             FixId::RunSfcDism => "run_sfc_dism",
+            FixId::ReadBootTime => "read_boot_time",
         }
     }
 }
@@ -144,6 +151,7 @@ fn change_count(fix: FixId) -> usize {
         FixId::EnableDefenderRealtime => 1,
         FixId::EnableFirewall => 1,
         FixId::RunSfcDism => 2,
+        FixId::ReadBootTime => 2,
     }
 }
 
@@ -156,6 +164,7 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::EnableDefenderRealtime
             | FixId::EnableFirewall
             | FixId::RunSfcDism
+            | FixId::ReadBootTime
     )
 }
 
@@ -170,6 +179,7 @@ fn reversible(fix: FixId) -> bool {
             | FixId::ResetWindowsUpdate
             | FixId::EnableDefenderRealtime
             | FixId::EnableFirewall
+            | FixId::ReadBootTime
     )
 }
 
@@ -272,6 +282,7 @@ mod tests {
             FixId::EnableDefenderRealtime => FixId::EnableDefenderRealtime,
             FixId::EnableFirewall => FixId::EnableFirewall,
             FixId::RunSfcDism => FixId::RunSfcDism,
+            FixId::ReadBootTime => FixId::ReadBootTime,
         }
     }
 
@@ -287,6 +298,7 @@ mod tests {
             FixId::EnableDefenderRealtime,
             FixId::EnableFirewall,
             FixId::RunSfcDism,
+            FixId::ReadBootTime,
         ]
         .into_iter()
         .map(witness)

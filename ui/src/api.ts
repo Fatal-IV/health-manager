@@ -78,8 +78,6 @@ export const api = {
   startScan: (mode: ScanMode, categories?: Category[]) =>
     call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
   cancelScan: () => call<void>("cancel_scan"),
-  isAdmin: () => call<boolean>("is_admin"),
-  relaunchAsAdmin: () => call<void>("relaunch_as_admin"),
   openWindowsUpdate: () => call<void>("open_windows_update"),
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
   applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),

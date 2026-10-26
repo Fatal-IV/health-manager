@@ -10,7 +10,7 @@ use health_core::fixes::{fix_plan, validate_arg, FixId, FixPlan};
 use health_core::model::Category;
 use health_core::probe::SystemProbe;
 use health_core::report::{iso_utc, translate, write_report, AppliedFix, ReportFormat, ScanReport};
-use health_core::verify::rescan_verify;
+use health_core::verify::{merge_boot_reading, rescan_verify};
 use serde::Serialize;
 use std::path::Path;
 use std::str::FromStr;
@@ -76,9 +76,19 @@ pub fn apply_and_verify(
             report: s.report.clone(),
         });
     }
+    // The unelevated app cannot re-read the boot time, so the helper's measured value is used.
+    let measured = match (&outcome, id) {
+        (FixOutcome::Applied { params, .. }, FixId::ReadBootTime) => {
+            params.get("seconds").and_then(|v| v.parse::<u32>().ok())
+        }
+        _ => None,
+    };
     let verified = match s.report.take() {
         Some(prev) => {
-            let (merged, ok) = rescan_verify(checks, probe, &prev, id, arg, now);
+            let (merged, ok) = match measured {
+                Some(secs) => merge_boot_reading(&prev, secs, now),
+                None => rescan_verify(checks, probe, &prev, id, arg, now),
+            };
             s.report = Some(merged);
             ok
         }
@@ -208,30 +218,6 @@ pub fn open_windows_update() -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
-}
-
-/// True when the app already runs with administrator rights.
-#[tauri::command]
-pub fn is_admin() -> bool {
-    #[cfg(windows)]
-    {
-        health_core::probe::windows::is_elevated().unwrap_or(false)
-    }
-    #[cfg(not(windows))]
-    {
-        false
-    }
-}
-
-/// Restarts the app elevated, then closes this instance. Nothing is closed if the user declines.
-#[tauri::command]
-pub fn relaunch_as_admin(app: tauri::AppHandle) -> Result<(), String> {
-    if is_admin() {
-        return Err("already_admin".into());
-    }
-    crate::elevate::relaunch_elevated()?;
-    app.exit(0);
-    Ok(())
 }
 
 #[tauri::command]

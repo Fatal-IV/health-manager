@@ -134,23 +134,12 @@ describe("Results", () => {
     expect(onArea).toHaveBeenCalledWith("storage");
   });
 
-  it("an unreadable boot time offers an admin restart, only while not admin", async () => {
-    const boot = issue({ id: "system.boot_unknown", category: "system", status: "unknown", fix: null, title_key: "issue.system.boot_unknown.title", why_key: "issue.system.boot_unknown.why" });
-    const view = () => (
-      <Results report={report({ results: [check({ check_id: "system.boot", category: "system", issues: [boot] })] })} onFix={noop} onReport={noop} onRescan={noop} />
-    );
-    vi.spyOn(api, "isAdmin").mockResolvedValue({ ok: true, value: true });
-    const first = render(view());
-    await act(async () => undefined);
-    expect(screen.queryByRole("button", { name: t("ui.results.relaunch_admin") })).not.toBeInTheDocument();
-    first.unmount();
-
-    vi.spyOn(api, "isAdmin").mockResolvedValue({ ok: true, value: false });
-    const relaunch = vi.spyOn(api, "relaunchAsAdmin").mockResolvedValue({ ok: true, value: undefined });
-    render(view());
-    await act(async () => undefined);
-    fireEvent.click(screen.getByRole("button", { name: t("ui.results.relaunch_admin") }));
-    expect(relaunch).toHaveBeenCalledTimes(1);
+  it("an unreadable boot time offers a one-click read through the normal fix flow", () => {
+    const boot = issue({ id: "system.boot_unknown", category: "system", status: "unknown", fix: "read_boot_time", title_key: "issue.system.boot_unknown.title", why_key: "issue.system.boot_unknown.why" });
+    const onFix = vi.fn();
+    render(<Results report={report({ results: [check({ check_id: "system.boot", category: "system", issues: [boot] })] })} onFix={onFix} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.results.read_boot_time") }));
+    expect(onFix).toHaveBeenCalledWith(boot);
   });
 
   it("parseStartupItems ignores garbage", () => {

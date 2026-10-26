@@ -18,9 +18,11 @@ pub mod keys {
     pub const NOT_AVAILABLE: &str = "fix.result.not_available";
     pub const FAILED: &str = "fix.result.failed";
     pub const TEMP_UNSUPPORTED: &str = "fix.result.temp_unsupported";
+    pub const BOOT_READ: &str = "fix.result.boot_read";
+    pub const BOOT_NOT_FOUND: &str = "fix.result.boot_not_found";
     /// Every key the helper can produce (checked against tr.json in tests).
     #[cfg_attr(not(test), allow(dead_code))]
-    pub const PRODUCED: [&str; 7] = [
+    pub const PRODUCED: [&str; 9] = [
         OK,
         INVALID,
         NOT_ELEVATED,
@@ -28,6 +30,8 @@ pub mod keys {
         NOT_AVAILABLE,
         FAILED,
         TEMP_UNSUPPORTED,
+        BOOT_READ,
+        BOOT_NOT_FOUND,
     ];
 }
 
@@ -35,6 +39,8 @@ pub type Params = BTreeMap<String, String>;
 
 #[derive(Debug, Default)]
 pub struct ActionReport {
+    /// Result key when it is not the generic `keys::OK`.
+    pub message: Option<&'static str>,
     pub params: Params,
     /// Technical detail lines (English), shown under "Ayrıntılar".
     pub log: Vec<String>,
@@ -67,11 +73,39 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
         FixId::EnableDefenderRealtime => crate::repair::enable_defender_realtime(&mut log),
         FixId::EnableFirewall => crate::repair::enable_firewall(&mut log),
         FixId::RunSfcDism => crate::repair::run_sfc_dism(&mut log),
+        FixId::ReadBootTime => read_boot_time(&mut log),
     };
+    let message = (fix == FixId::ReadBootTime).then_some(keys::BOOT_READ);
     match r {
-        Ok(params) => Ok(ActionReport { params, log }),
+        Ok(params) => Ok(ActionReport { message, params, log }),
         Err(key) => Err(ActionError { key, log }),
     }
+}
+
+/// Reads the last boot duration from the event log. Needs administrator; changes nothing.
+#[cfg(windows)]
+fn read_boot_time(log: &mut Vec<String>) -> Result<Params, &'static str> {
+    use health_core::probe::{windows::WindowsProbe, SystemProbe};
+    match WindowsProbe::new().boot_seconds() {
+        Ok(Some(secs)) => {
+            log.push(format!("last boot took {secs} s"));
+            Ok(Params::from([("seconds".to_string(), secs.to_string())]))
+        }
+        Ok(None) => {
+            log.push("no boot performance event found".into());
+            Err(keys::BOOT_NOT_FOUND)
+        }
+        Err(e) => {
+            log.push(format!("boot time unavailable: {e}"));
+            Err(keys::FAILED)
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn read_boot_time(log: &mut Vec<String>) -> Result<Params, &'static str> {
+    log.push("unsupported platform".into());
+    Err(keys::NOT_AVAILABLE)
 }
 
 /// Run entries whose id equals `id` exactly (byte for byte), one per

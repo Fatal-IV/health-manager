@@ -102,7 +102,7 @@
       },
       "boot_unknown": {
         "title": "Açılış süresi ölçülemedi",
-        "why": "Windows, açılış süresini yalnızca yönetici olarak çalışan programlara gösteriyor. Süreyi görmek için uygulamayı yönetici olarak yeniden başlatın; bunun dışında yapmanız gereken bir şey yok. Zaten yönetici olarak çalışıyorsa bu bilgisayarda açılış kaydı tutulmuyor olabilir."
+        "why": "Windows, açılış süresini yalnızca yönetici izniyle çalışan programlara gösteriyor. \"Süreyi oku\" dediğinizde Windows tek seferlik izin ister; uygulama yeniden başlamaz, hiçbir şey değiştirilmez."
       },
       "integrity": {
         "title": "Windows sistem dosyalarında bozulma bulundu",
@@ -122,6 +122,8 @@
       "invalid_argument": "İstek geçersiz olduğu için hiçbir şey yapılmadı.",
       "timeout": "Düzeltme beklenen sürede tamamlanmadı. Sonucu kontrol etmek için denetimi yeniden çalıştırın.",
       "failed": "Düzeltme yapılamadı. Teknik ayrıntılar \"Ayrıntılar\" bölümünde.",
+      "boot_read": "Açılış süresi okundu: {{seconds}} saniye.",
+      "boot_not_found": "Bu bilgisayarda açılış süresi kaydı bulunamadı. Hiçbir değişiklik yapılmadı.",
       "temp_unsupported": "Bu bilgisayarda geçici dosyalar için özel bir klasör kullanılıyor. Güvenlik için bu klasör temizlenmez; hiçbir dosya silinmedi."
     },
     "clean_temp": {
@@ -175,6 +177,13 @@
       "summary": "Güvenlik duvarını aç",
       "change": {
         "1": "Windows güvenlik duvarı tüm ağ türlerinde açılacak. Bu işlem yönetici izni ister, istediğiniz zaman tekrar kapatılabilir ve kayda geçirilir."
+      }
+    },
+    "read_boot_time": {
+      "summary": "Açılış süresini oku",
+      "change": {
+        "1": "Windows'un açılış kaydı okunup sonuç rapora eklenecek. Hiçbir ayar ya da dosya değiştirilmez.",
+        "2": "Kayıt yalnızca yönetici izniyle okunabildiği için Windows sizden bir kez izin isteyecek."
       }
     },
     "run_sfc_dism": {
@@ -252,8 +261,7 @@
       "issues_count": "{{count}} sorun",
       "areas": "Alanlar",
       "rescan_area": "Bu alanı tara",
-      "relaunch_admin": "Yönetici olarak yeniden başlat",
-      "relaunch_failed": "Uygulama yönetici olarak başlatılamadı.",
+      "read_boot_time": "Süreyi oku",
       "fix_selected": "Seçilenleri düzelt",
       "select_issue": "Seç",
       "open_update": "Windows Update'i aç"
