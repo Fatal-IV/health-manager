@@ -95,6 +95,15 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Res
   }
 }
 
+export interface TroubleshootState {
+  state: "healthy" | "suggest" | "resolved" | "exhausted";
+  step: number | null;
+  total: number;
+  fix: string | null;
+  reboot: boolean;
+  unmeasured: boolean;
+}
+
 export const api = {
   startScan: (mode: ScanMode, categories?: Category[]) =>
     call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
@@ -107,6 +116,9 @@ export const api = {
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
   applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),
   getSession: () => call<Session>("get_session"),
+  troubleshootStart: () => call<TroubleshootState>("troubleshoot_start"),
+  troubleshootAfterFix: (step: number) => call<TroubleshootState>("troubleshoot_after_fix", { step }),
+  troubleshootSkip: (step: number) => call<TroubleshootState>("troubleshoot_skip", { step }),
   exportReport: (format: ReportFormat, path: string) => call<void>("export_report", { format, path }),
   onProgress: (cb: (p: Progress) => void) => listen<Progress>("scan-progress", (e) => cb(e.payload)),
 };

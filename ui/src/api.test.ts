@@ -22,6 +22,16 @@ describe("api", () => {
     expect(r).toEqual({ ok: true, value: { outcome: { status: "declined" }, verified: false, report: null } });
   });
 
+  it("sends the troubleshooter commands with the step as an argument", async () => {
+    mocked.mockResolvedValue(undefined);
+    await api.troubleshootStart();
+    await api.troubleshootAfterFix(1);
+    await api.troubleshootSkip(2);
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_start", undefined);
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_after_fix", { step: 1 });
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_skip", { step: 2 });
+  });
+
   it("sends the command names and argument shapes the Rust side expects", async () => {
     mocked.mockResolvedValue(undefined);
     await api.startScan("deep");

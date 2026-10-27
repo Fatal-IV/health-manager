@@ -265,6 +265,74 @@ pub async fn apply_fix_cmd(
     .map_err(|e| e.to_string())?
 }
 
+/// Troubleshooter state for the UI. `fix` names the proposed step's fix; the
+/// repair itself still goes through `get_fix_plan` / `apply_fix_cmd`.
+#[derive(serde::Serialize, Debug, PartialEq)]
+pub struct TroubleshootState {
+    pub state: &'static str,
+    pub step: Option<usize>,
+    pub total: usize,
+    pub fix: Option<&'static str>,
+    pub reboot: bool,
+    pub unmeasured: bool,
+}
+
+pub fn troubleshoot_response(
+    t: &health_core::troubleshoot::Troubleshooter,
+    s: health_core::troubleshoot::State,
+) -> TroubleshootState {
+    use health_core::troubleshoot::State;
+    let mut r = TroubleshootState {
+        state: "healthy",
+        step: None,
+        total: t.steps.len(),
+        fix: None,
+        reboot: false,
+        unmeasured: false,
+    };
+    match s {
+        State::Healthy => {}
+        State::Suggest { step, unmeasured } => {
+            r.state = "suggest";
+            r.step = Some(step);
+            r.fix = t.steps.get(step).map(|s| s.fix.as_str());
+            r.unmeasured = unmeasured;
+        }
+        State::Resolved { reboot } => {
+            r.state = "resolved";
+            r.reboot = reboot;
+        }
+        State::Exhausted => r.state = "exhausted",
+    }
+    r
+}
+
+#[tauri::command]
+pub async fn troubleshoot_start() -> Result<TroubleshootState, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let t = health_core::troubleshoot::network();
+        troubleshoot_response(&t, t.start(&make_probe()))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn troubleshoot_after_fix(step: usize) -> Result<TroubleshootState, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let t = health_core::troubleshoot::network();
+        troubleshoot_response(&t, t.after_fix(step, &make_probe()))
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn troubleshoot_skip(step: usize) -> TroubleshootState {
+    let t = health_core::troubleshoot::network();
+    troubleshoot_response(&t, t.skip(step))
+}
+
 #[tauri::command]
 pub fn get_session(state: tauri::State<'_, AppState>) -> Result<Session, String> {
     state
@@ -292,6 +360,40 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn troubleshoot_healthy_maps_to_healthy() {
+        let t = health_core::troubleshoot::network();
+        let r = troubleshoot_response(&t, t.start(&FakeProbe::default()));
+        assert_eq!(r.state, "healthy");
+        assert_eq!(r.fix, None);
+        assert_eq!(r.total, 3);
+    }
+
+    #[test]
+    fn troubleshoot_suggest_names_the_fix_and_the_step() {
+        let t = health_core::troubleshoot::network();
+        let p = FakeProbe { dns: Some(false), ..FakeProbe::default() };
+        let r = troubleshoot_response(&t, t.start(&p));
+        assert_eq!((r.state, r.step, r.fix), ("suggest", Some(0), Some("flush_dns")));
+        assert!(!r.unmeasured);
+    }
+
+    #[test]
+    fn troubleshoot_resolved_carries_the_reboot_note() {
+        let t = health_core::troubleshoot::network();
+        let r = troubleshoot_response(&t, t.after_fix(2, &FakeProbe::default()));
+        assert_eq!(r.state, "resolved");
+        assert!(r.reboot);
+    }
+
+    #[test]
+    fn troubleshoot_exhausted_maps_to_exhausted() {
+        let t = health_core::troubleshoot::network();
+        let r = troubleshoot_response(&t, t.skip(2));
+        assert_eq!(r.state, "exhausted");
+        assert_eq!(r.fix, None);
+    }
 
     fn ok() -> FixOutcome {
         FixOutcome::Applied {
