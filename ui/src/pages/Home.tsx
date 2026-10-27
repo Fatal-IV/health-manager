@@ -1,4 +1,5 @@
 import { CheckCircle, Play, Stethoscope, Wrench } from "@phosphor-icons/react";
+import { ActionDock, type DockAction } from "../components/ActionDock";
 import { useEffect, useState } from "react";
 import { api, type Category, type ScanMode, type SystemSummary } from "../api";
 import { formatBoot, formatGb, formatUptime, shortOsName } from "../format";
@@ -82,6 +83,10 @@ export function Home({
     else onStart(mode, AREAS.filter((c) => areas.includes(c)));
   };
 
+  const actions: DockAction[] = [{ key: "audit", label: t("ui.home.audit_title"), icon: Play, onClick: start, primary: true }];
+  if (onTroubleshoot) actions.push({ key: "troubleshoot", label: t("ui.home.troubleshoot"), icon: Wrench, onClick: onTroubleshoot });
+  if (onBoth) actions.push({ key: "both", label: t("ui.home.both"), icon: Stethoscope, onClick: onBoth });
+
   const tiles = summary ? summaryTiles(summary) : [];
   const last = lastScan ? t("ui.home.last_scan", { date: new Date(lastScan).toLocaleString("tr-TR") }) : t("ui.home.never");
   const hasScore = score !== null && score !== undefined;
@@ -163,20 +168,7 @@ export function Home({
         )}
       </section>
 
-      {(onTroubleshoot || onBoth) && (
-        <div className="row">
-          {onTroubleshoot && (
-            <button type="button" onClick={onTroubleshoot}>
-              <Wrench size={17} aria-hidden /> {t("ui.home.troubleshoot")}
-            </button>
-          )}
-          {onBoth && (
-            <button type="button" className="primary" onClick={onBoth}>
-              <Stethoscope size={17} aria-hidden /> {t("ui.home.both")}
-            </button>
-          )}
-        </div>
-      )}
+      <ActionDock label={t("ui.home.actions")} actions={actions} />
     </main>
   );
 }

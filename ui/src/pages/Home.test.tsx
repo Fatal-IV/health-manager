@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { api, type SystemSummary } from "../api";
 import { t } from "../i18n";
 import { Home, summaryTiles } from "./Home";
@@ -33,6 +33,18 @@ describe("Home", () => {
     rerender(<Home onStart={() => undefined} onTroubleshoot={open} />);
     fireEvent.click(screen.getByRole("button", { name: new RegExp(t("ui.home.troubleshoot")) }));
     expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the three actions in a dock, each named, each doing its own thing", () => {
+    const [start, troubleshoot, both] = [vi.fn(), vi.fn(), vi.fn()];
+    render(<Home onStart={start} onTroubleshoot={troubleshoot} onBoth={both} />);
+    const dock = screen.getByRole("navigation", { name: t("ui.home.actions") });
+    fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.audit_title") }));
+    expect(start).toHaveBeenCalledWith("quick");
+    fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.troubleshoot") }));
+    expect(troubleshoot).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.both") }));
+    expect(both).toHaveBeenCalledTimes(1);
   });
 
   it("offers the combined check only when the app can run it", () => {

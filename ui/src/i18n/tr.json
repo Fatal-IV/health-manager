@@ -345,6 +345,7 @@
     "home": {
       "troubleshoot": "Sorun gider",
       "both": "Bir sorun sezdim: ikisini birden yap",
+      "actions": "Eylemler",
       "audit_title": "Sağlık ve performans denetimi",
       "title": "Bilgisayarınızın sağlığını kontrol edelim",
       "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",
