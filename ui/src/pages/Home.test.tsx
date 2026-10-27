@@ -39,7 +39,9 @@ describe("Home", () => {
     const [start, troubleshoot, both] = [vi.fn(), vi.fn(), vi.fn()];
     render(<Home onStart={start} onTroubleshoot={troubleshoot} onBoth={both} />);
     const dock = screen.getByRole("navigation", { name: t("ui.home.actions") });
-    fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.audit_title") }));
+    // "Taramayı Başlat" lives in the dock only: one button of that name, inside it.
+    expect(screen.getAllByRole("button", { name: t("ui.home.start") })).toHaveLength(1);
+    fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.start") }));
     expect(start).toHaveBeenCalledWith("quick");
     fireEvent.click(within(dock).getByRole("button", { name: t("ui.home.troubleshoot") }));
     expect(troubleshoot).toHaveBeenCalledTimes(1);

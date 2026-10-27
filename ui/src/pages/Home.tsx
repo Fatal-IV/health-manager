@@ -83,7 +83,7 @@ export function Home({
     else onStart(mode, AREAS.filter((c) => areas.includes(c)));
   };
 
-  const actions: DockAction[] = [{ key: "audit", label: t("ui.home.audit_title"), icon: Play, onClick: start, primary: true }];
+  const actions: DockAction[] = [{ key: "audit", label: t("ui.home.start"), icon: Play, onClick: start, primary: true, disabled: areas.length === 0 }];
   if (onTroubleshoot) actions.push({ key: "troubleshoot", label: t("ui.home.troubleshoot"), icon: Wrench, onClick: onTroubleshoot });
   if (onBoth) actions.push({ key: "both", label: t("ui.home.both"), icon: Stethoscope, onClick: onBoth });
 
@@ -141,10 +141,6 @@ export function Home({
               {last}
             </p>
           </div>
-          <button type="button" className="primary big" disabled={areas.length === 0} onClick={start}>
-            <Play size={18} weight="fill" aria-hidden />
-            {t("ui.home.start")}
-          </button>
         </div>
 
         {editing && (
