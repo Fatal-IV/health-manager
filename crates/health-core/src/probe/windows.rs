@@ -1012,6 +1012,40 @@ impl SystemProbe for WindowsProbe {
         }
     }
 
+    fn gateway_reachable(&self) -> Result<bool, ProbeError> {
+        // Fixed script, no input: exit 0 = answers, 1 = silent, 2 = no default gateway.
+        const SCRIPT: &str = "$g=(Get-NetRoute -DestinationPrefix 0.0.0.0/0 -ErrorAction SilentlyContinue | Sort-Object RouteMetric | Select-Object -First 1).NextHop; if(-not $g){exit 2}; if(Test-Connection -ComputerName $g -Count 1 -Quiet){exit 0}else{exit 1}";
+        let ps = system32_dir().join(r"WindowsPowerShell\v1.0\powershell.exe");
+        match run_process(
+            &ps,
+            &["-NoProfile", "-NonInteractive", "-Command", SCRIPT],
+            Duration::from_secs(15),
+        ) {
+            Ok(0) => Ok(true),
+            Ok(1 | 2) => Ok(false),
+            Ok(c) => Err(ProbeError::Unavailable(format!("gateway test exited {c}"))),
+            Err(e) => Err(ProbeError::Unavailable(format!("gateway test: {e}"))),
+        }
+    }
+
+    fn dns_resolves(&self) -> Result<bool, ProbeError> {
+        use std::net::ToSocketAddrs;
+        // Resolution can block for a long time on a dead resolver; bound it.
+        run_with_timeout(Duration::from_secs(5), || {
+            "www.msftconnecttest.com:80"
+                .to_socket_addrs()
+                .map(|mut a| a.next().is_some())
+                .unwrap_or(false)
+        })
+        .map_or(Ok(false), Ok)
+    }
+
+    fn internet_reachable(&self) -> Result<bool, ProbeError> {
+        use std::net::{SocketAddr, TcpStream};
+        let addr = SocketAddr::from(([1, 1, 1, 1], 53));
+        Ok(TcpStream::connect_timeout(&addr, Duration::from_secs(2)).is_ok())
+    }
+
     /// Needs administrator (SFC/DISM refuse to run otherwise). The app starts
     /// unelevated, so until Tasks 10/11 route the deep integrity scan through the
     /// elevated helper this returns `Unavailable("needs administrator")` and the

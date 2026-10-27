@@ -149,6 +149,12 @@ pub trait SystemProbe: Send + Sync {
     fn boot_seconds(&self) -> Result<Option<u32>, ProbeError>;
     /// SFC + DISM verification (minutes; deep scan only). Needs administrator.
     fn integrity_scan(&self) -> Result<IntegrityResult, ProbeError>;
+    /// Whether the default gateway answers; `false` also when there is no gateway.
+    fn gateway_reachable(&self) -> Result<bool, ProbeError>;
+    /// Whether a well-known name resolves through the system resolver.
+    fn dns_resolves(&self) -> Result<bool, ProbeError>;
+    /// Whether an internet address answers by IP, independent of DNS.
+    fn internet_reachable(&self) -> Result<bool, ProbeError>;
     /// Current time; a method so tests do not depend on the real clock.
     fn now(&self) -> SystemTime {
         SystemTime::now()

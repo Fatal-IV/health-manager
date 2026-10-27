@@ -51,6 +51,15 @@ pub struct FakeProbe {
     /// `None` = `IntegrityResult::Clean`.
     pub integrity: Option<IntegrityResult>,
     pub integrity_error: Option<ProbeError>,
+    /// `None` = reachable.
+    pub gateway: Option<bool>,
+    pub gateway_error: Option<ProbeError>,
+    /// `None` = resolves.
+    pub dns: Option<bool>,
+    pub dns_error: Option<ProbeError>,
+    /// `None` = reachable.
+    pub internet: Option<bool>,
+    pub internet_error: Option<ProbeError>,
     /// Counts `integrity_scan` calls (shared across clones).
     pub integrity_calls: Arc<AtomicUsize>,
     /// Fixed clock; `None` uses the real time.
@@ -136,7 +145,40 @@ impl SystemProbe for FakeProbe {
             self.integrity.unwrap_or(IntegrityResult::Clean),
         )
     }
+    fn gateway_reachable(&self) -> Result<bool, ProbeError> {
+        pick(&self.gateway_error, self.gateway.unwrap_or(true))
+    }
+    fn dns_resolves(&self) -> Result<bool, ProbeError> {
+        pick(&self.dns_error, self.dns.unwrap_or(true))
+    }
+    fn internet_reachable(&self) -> Result<bool, ProbeError> {
+        pick(&self.internet_error, self.internet.unwrap_or(true))
+    }
     fn now(&self) -> SystemTime {
         self.now.unwrap_or_else(SystemTime::now)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn network_probes_default_to_reachable() {
+        let p = FakeProbe::default();
+        assert_eq!(p.gateway_reachable(), Ok(true));
+        assert_eq!(p.dns_resolves(), Ok(true));
+        assert_eq!(p.internet_reachable(), Ok(true));
+    }
+
+    #[test]
+    fn network_probe_error_is_injected() {
+        let p = FakeProbe {
+            dns_error: Some(ProbeError::Unavailable("x".into())),
+            internet: Some(false),
+            ..FakeProbe::default()
+        };
+        assert!(p.dns_resolves().is_err());
+        assert_eq!(p.internet_reachable(), Ok(false));
     }
 }
