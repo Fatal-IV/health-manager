@@ -198,14 +198,12 @@
       }
     },
     "flush_dns": {
-      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "DNS önbelleğini temizle",
       "change": {
         "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Windows sizden bir kez izin isteyecek."
       }
     },
     "renew_ip": {
-      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "IP adresini yenile",
       "change": {
         "1": "Bilgisayar ağdan aldığı IP adresini bırakıp yenisini isteyecek. İnternet bağlantınız birkaç saniyeliğine kesilir.",
@@ -213,7 +211,6 @@
       }
     },
     "reset_winsock": {
-      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "Ağ ayarlarını sıfırla (Winsock)",
       "change": {
         "1": "Windows'un ağ bileşenleri varsayılan duruma döndürülecek. İşlemin tamamlanması için bilgisayarı yeniden başlatmanız gerekir.",
@@ -266,32 +263,74 @@
       "news_ok": "Tamam"
     },
     "troubleshoot": {
-      "title": "Ağ ve internet sorun giderici",
-      "loading": "Bağlantı denetleniyor…",
+      "picker_title": "Hangi sorunu gidermek istersiniz?",
+      "titles": {
+        "network": "Ağ ve internet",
+        "windows_update": "Windows Update",
+        "system_files": "Sistem dosyaları",
+        "slowness": "Yavaşlık"
+      },
+      "descriptions": {
+        "network": "İnternet yok ya da sayfalar açılmıyor",
+        "windows_update": "Güncellemeler inmiyor ya da takılıyor",
+        "system_files": "Bozuk ya da eksik Windows dosyaları",
+        "slowness": "Bilgisayar yavaş ya da disk dolu"
+      },
+      "loading": "Denetleniyor…",
       "error": "Sorun giderici başlatılamadı. Biraz sonra tekrar deneyin.",
       "step": "Adım {{n}} / {{total}}",
       "apply": "Bu adımı uygula",
       "skip": "Sonrakine geç",
       "retry": "Yeniden dene",
       "back": "Geri dön",
-      "unmeasured": "Bazı testler ölçülemedi; bu yüzden bağlantının durumunu kesin söyleyemiyoruz.",
-      "healthy_title": "Bağlantıda sorun görünmüyor",
-      "healthy_text": "Ağ geçidiniz, ad çözümleme ve internet erişimi yanıt veriyor.",
+      "unmeasured": "Bazı testler ölçülemedi; bu yüzden durumu kesin söyleyemiyoruz.",
+      "unverified": "Uygulandı. Sonuç bir sonraki adımda kontrol edilecek.",
+      "healthy_title": "Sorun görünmüyor",
       "resolved_title": "Sorun giderildi",
-      "resolved_text": "Son adımdan sonra bağlantı testi başarılı geçti.",
-      "reboot_note": "İşlemin tamamlanması için bilgisayarı yeniden başlatın; ardından bağlantıyı tekrar deneyin.",
       "exhausted_title": "Sorun giderilemedi",
-      "exhausted_text": "Tüm adımlar denendi ama bağlantı hâlâ yanıt vermiyor. Modem veya yönlendiriciyi yeniden başlatmayı deneyin; sürerse sağlayıcınıza başvurun. Yapılan işlemler raporda görünür.",
       "declined_title": "Bu adım uygulanmadı",
       "declined_text": "Adım tamamlanmadı ya da onay verilmedi. Yeniden deneyebilir veya sonraki adıma geçebilirsiniz.",
+      "reboot_note": "İşlemin tamamlanması için bilgisayarı yeniden başlatın; ardından tekrar deneyin.",
+      "hints_label": "Ek bilgiler",
+      "hints": {
+        "high_ram": "Bellek kullanımı yüksek (%85 üstü). Taramada Performans bölümünde en çok bellek kullanan programlar listelenir.",
+        "high_cpu": "İşlemci şu an çok yoğun (%90 üstü). Taramada Performans bölümünde hangi programların yorduğunu görebilirsiniz."
+      },
+      "texts": {
+        "network": {
+          "healthy": "Ağ geçidiniz, ad çözümleme ve internet erişimi yanıt veriyor.",
+          "resolved": "Son adımdan sonra bağlantı testi başarılı geçti.",
+          "exhausted": "Tüm adımlar denendi ama bağlantı hâlâ yanıt vermiyor. Modem veya yönlendiriciyi yeniden başlatmayı deneyin; sürerse sağlayıcınıza başvurun. Yapılan işlemler raporda görünür."
+        },
+        "windows_update": {
+          "healthy": "Güncelleme servisleri kullanılabilir, bekleyen güncellemeler okunuyor ve son kurulum yakın tarihli.",
+          "resolved": "Güncelleme listesi artık okunuyor. Windows Update'i açıp güncellemeleri tekrar denetleyin.",
+          "exhausted": "İki adım da denendi ama güncelleme bilgisi hâlâ okunamıyor. Bilgisayarı yeniden başlatıp tekrar deneyin; sürerse sistem dosyaları onarımını deneyin."
+        },
+        "system_files": {
+          "healthy": "Bu sorun gidericinin hızlı bir testi yok; onarımı doğrudan başlatabilirsiniz.",
+          "resolved": "Onarım tamamlandı. Windows'un kendi araçları dosyaları denetleyip gerekenleri onardı; ayrıntılar işlem kaydında.",
+          "exhausted": "Onarım uygulanmadı. İsterseniz daha sonra tekrar deneyebilirsiniz."
+        },
+        "slowness": {
+          "healthy": "Disk boşluğu ve geçici dosyalar normal görünüyor.",
+          "resolved": "Temizlikten sonra disk ve geçici dosyalar normale döndü.",
+          "exhausted": "Temizlik yeterli olmadı. Taramayı çalıştırıp Performans bölümündeki başlangıç programlarına ve ağır işlemlere bakın."
+        }
+      },
       "why": {
         "flush_dns": "Önce en hafif adım: site adreslerinin eski ya da bozuk kaydı bağlantıyı engelleyebilir.",
         "renew_ip": "Bilgisayarın ağdan aldığı adres yanlış ya da süresi dolmuş olabilir; yenisini isteriz.",
-        "reset_winsock": "Son çare: Windows'un ağ bileşenleri bozulmuş olabilir. Bu adım sonrası yeniden başlatma gerekir."
+        "reset_winsock": "Son çare: Windows'un ağ bileşenleri bozulmuş olabilir. Bu adım sonrası yeniden başlatma gerekir.",
+        "clean_update_leftovers": "Önce en hafif adım: yarım kalmış güncelleme indirmeleri takılmaya yol açabilir.",
+        "reset_windows_update": "Güncelleme bileşenleri bozulmuş olabilir; klasörler yedeklenerek sıfırlanır ve servisler yeniden başlatılır.",
+        "run_sfc_dism": "Bozuk ya da eksik Windows dosyaları birçok tuhaf sorunun sebebi olabilir; Windows'un kendi araçlarıyla taranıp onarılır.",
+        "clean_temp": "Önce en hafif adım: geçici dosyalar yer kaplar ve sistemi yavaşlatabilir.",
+        "empty_recycle_bin": "Geri dönüşüm kutusu disk alanı tutuyor olabilir."
       }
     },
     "home": {
-      "troubleshoot": "Ağ sorunları için sorun gider",
+      "troubleshoot": "Sorun gider",
       "title": "Bilgisayarınızın sağlığını kontrol edelim",
       "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",
       "start": "Taramayı Başlat",

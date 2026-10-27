@@ -275,6 +275,22 @@ pub struct TroubleshootState {
     pub fix: Option<&'static str>,
     pub reboot: bool,
     pub unmeasured: bool,
+    /// Keys of readings no step can fix (high memory or processor use).
+    pub hints: Vec<&'static str>,
+}
+
+pub fn troubleshooter(id: &str) -> Result<health_core::troubleshoot::Troubleshooter, String> {
+    id.parse::<health_core::troubleshoot::TroubleshooterId>().map(health_core::troubleshoot::for_id)
+}
+
+/// The first answer of a troubleshooter: its state plus the hints that apply right now.
+pub fn troubleshoot_start_response(
+    t: &health_core::troubleshoot::Troubleshooter,
+    probe: &dyn SystemProbe,
+) -> TroubleshootState {
+    let mut r = troubleshoot_response(t, t.start(probe));
+    r.hints = t.hints(probe);
+    r
 }
 
 pub fn troubleshoot_response(
@@ -289,6 +305,7 @@ pub fn troubleshoot_response(
         fix: None,
         reboot: false,
         unmeasured: false,
+        hints: Vec::new(),
     };
     match s {
         State::Healthy => {}
@@ -308,19 +325,17 @@ pub fn troubleshoot_response(
 }
 
 #[tauri::command]
-pub async fn troubleshoot_start() -> Result<TroubleshootState, String> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let t = health_core::troubleshoot::network();
-        troubleshoot_response(&t, t.start(&make_probe()))
-    })
-    .await
-    .map_err(|e| e.to_string())
+pub async fn troubleshoot_start(id: String) -> Result<TroubleshootState, String> {
+    let t = troubleshooter(&id)?;
+    tauri::async_runtime::spawn_blocking(move || troubleshoot_start_response(&t, &make_probe()))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn troubleshoot_after_fix(step: usize) -> Result<TroubleshootState, String> {
+pub async fn troubleshoot_after_fix(id: String, step: usize) -> Result<TroubleshootState, String> {
+    let t = troubleshooter(&id)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let t = health_core::troubleshoot::network();
         troubleshoot_response(&t, t.after_fix(step, &make_probe()))
     })
     .await
@@ -328,9 +343,9 @@ pub async fn troubleshoot_after_fix(step: usize) -> Result<TroubleshootState, St
 }
 
 #[tauri::command]
-pub fn troubleshoot_skip(step: usize) -> TroubleshootState {
-    let t = health_core::troubleshoot::network();
-    troubleshoot_response(&t, t.skip(step))
+pub fn troubleshoot_skip(id: String, step: usize) -> Result<TroubleshootState, String> {
+    let t = troubleshooter(&id)?;
+    Ok(troubleshoot_response(&t, t.skip(step)))
 }
 
 #[tauri::command]
@@ -360,6 +375,21 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn troubleshoot_start_reports_hints_and_rejects_unknown_ids() {
+        let t = troubleshooter("slowness").unwrap();
+        let busy = FakeProbe {
+            disks: vec![health_core::probe::DiskInfo { mount: "C:".into(), total_bytes: 100 * GIB, free_bytes: 50 * GIB, removable: false }],
+            ram_used: 90,
+            ram_total: 100,
+            ..FakeProbe::default()
+        };
+        let r = troubleshoot_start_response(&t, &busy);
+        assert_eq!(r.state, "healthy");
+        assert_eq!(r.hints, vec!["high_ram"]);
+        assert!(troubleshooter("nope").is_err());
+    }
 
     #[test]
     fn troubleshoot_healthy_maps_to_healthy() {

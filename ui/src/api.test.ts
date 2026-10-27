@@ -24,12 +24,12 @@ describe("api", () => {
 
   it("sends the troubleshooter commands with the step as an argument", async () => {
     mocked.mockResolvedValue(undefined);
-    await api.troubleshootStart();
-    await api.troubleshootAfterFix(1);
-    await api.troubleshootSkip(2);
-    expect(mocked).toHaveBeenCalledWith("troubleshoot_start", undefined);
-    expect(mocked).toHaveBeenCalledWith("troubleshoot_after_fix", { step: 1 });
-    expect(mocked).toHaveBeenCalledWith("troubleshoot_skip", { step: 2 });
+    await api.troubleshootStart("network");
+    await api.troubleshootAfterFix("network", 1);
+    await api.troubleshootSkip("slowness", 2);
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_start", { id: "network" });
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_after_fix", { id: "network", step: 1 });
+    expect(mocked).toHaveBeenCalledWith("troubleshoot_skip", { id: "slowness", step: 2 });
   });
 
   it("sends the command names and argument shapes the Rust side expects", async () => {

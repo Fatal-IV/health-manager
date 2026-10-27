@@ -19,6 +19,7 @@ export function FixPreview({
   onConfirm,
   onCancel,
   onDone,
+  unverifiedKey,
 }: {
   plan: FixPlan;
   busy: boolean;
@@ -26,6 +27,8 @@ export function FixPreview({
   onConfirm: () => void;
   onCancel: () => void;
   onDone: () => void;
+  /** What an unverified result means in the caller's flow; defaults to the scan wording. */
+  unverifiedKey?: string;
 }) {
   const params = plan.params;
   return (
@@ -57,7 +60,7 @@ export function FixPreview({
           </>
         )}
 
-        {result && <Outcome result={result} fix={plan.fix} />}
+        {result && <Outcome result={result} fix={plan.fix} unverifiedKey={unverifiedKey} />}
         {result && (
           <button type="button" className="primary" onClick={onDone}>
             {t("ui.fix.done")}
@@ -68,7 +71,7 @@ export function FixPreview({
   );
 }
 
-export function Outcome({ result, fix }: { result: ApplyResult; fix?: string }) {
+export function Outcome({ result, fix, unverifiedKey }: { result: ApplyResult; fix?: string; unverifiedKey?: string }) {
   const o = result.outcome;
   if (o.status === "declined") return <p role="status">{t("fix.result.declined")}</p>;
   if (o.status === "applied") {
@@ -82,7 +85,7 @@ export function Outcome({ result, fix }: { result: ApplyResult; fix?: string }) 
         <div>
           <p>{t(o.message, o.params)}</p>
           <p className={result.verified ? "s-good" : "s-warning"}>
-            {result.verified ? own(fix, "verified", "ui.fix.verified") : own(fix, "unverified", "ui.fix.unverified")}
+            {result.verified ? own(fix, "verified", "ui.fix.verified") : t(unverifiedKey ?? "ui.fix.unverified")}
           </p>
         </div>
       </div>

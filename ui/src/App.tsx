@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, type AppliedFix, type Category, type ApplyResult, type FixPlan, type Issue, type ScanMode, type ScanReport } from "./api";
+import { api, type AppliedFix, type Category, type TroubleshooterId, type ApplyResult, type FixPlan, type Issue, type ScanMode, type ScanReport } from "./api";
 import { TitleBar } from "./components/TitleBar";
 import { UpdateCorner } from "./components/UpdateCorner";
 import { t } from "./i18n";
@@ -10,6 +10,7 @@ import { Report } from "./pages/Report";
 import { Results } from "./pages/Results";
 import { Scanning } from "./pages/Scanning";
 import { Troubleshoot } from "./pages/Troubleshoot";
+import { TroubleshootPicker } from "./pages/TroubleshootPicker";
 
 type View =
   | { name: "home" }
@@ -18,7 +19,7 @@ type View =
   | { name: "bulk"; items: BulkItem[]; busy: boolean; results: ApplyResult[] | null }
   | { name: "fix"; fix: string; arg?: string; plan: FixPlan; busy: boolean; result: ApplyResult | null }
   | { name: "report" }
-  | { name: "troubleshoot" };
+  | { name: "troubleshoot"; id?: TroubleshooterId };
 
 export default function App() {
   const [view, setView] = useState<View>({ name: "home" });
@@ -149,7 +150,10 @@ export default function App() {
           onDone={() => setView({ name: "results" })}
         />
       )}
-      {view.name === "troubleshoot" && <Troubleshoot onBack={() => setView({ name: "home" })} />}
+      {view.name === "troubleshoot" && !view.id && (
+        <TroubleshootPicker onPick={(id) => setView({ name: "troubleshoot", id })} onBack={() => setView({ name: "home" })} />
+      )}
+      {view.name === "troubleshoot" && view.id && <Troubleshoot id={view.id} onBack={() => setView({ name: "troubleshoot" })} />}
       {view.name === "report" && report && <Report report={report} applied={applied} onBack={() => setView({ name: "results" })} />}
     </>
   );

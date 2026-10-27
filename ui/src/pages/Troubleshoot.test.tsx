@@ -11,6 +11,7 @@ const st = (over: Partial<TroubleshootState> = {}): TroubleshootState => ({
   fix: null,
   reboot: false,
   unmeasured: false,
+  hints: [],
   ...over,
 });
 const ok = <T,>(value: T) => ({ ok: true as const, value });
@@ -31,7 +32,7 @@ describe("Troubleshoot", () => {
 
   it("says nothing looks wrong when every test passes", async () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(st()));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.healthy_title"))).toBeInTheDocument();
   });
 
@@ -39,11 +40,11 @@ describe("Troubleshoot", () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(suggest()));
     const apply = vi.spyOn(api, "applyFix").mockResolvedValue(ok(applied()));
     const after = vi.spyOn(api, "troubleshootAfterFix").mockResolvedValue(ok(st({ state: "resolved" })));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.step", { n: 1, total: 3 }))).toBeInTheDocument();
     await applyFirstStep();
     expect(apply).toHaveBeenCalledWith("flush_dns");
-    expect(after).toHaveBeenCalledWith(0);
+    expect(after).toHaveBeenCalledWith("network", 0);
     expect(await screen.findByText(t("ui.troubleshoot.resolved_title"))).toBeInTheDocument();
   });
 
@@ -52,37 +53,61 @@ describe("Troubleshoot", () => {
     vi.spyOn(api, "applyFix").mockResolvedValue(ok({ ...applied(), outcome: { status: "declined" }, verified: false }));
     const after = vi.spyOn(api, "troubleshootAfterFix");
     const skip = vi.spyOn(api, "troubleshootSkip").mockResolvedValue(ok(suggest({ step: 1, fix: "renew_ip" })));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     await applyFirstStep();
     expect(await screen.findByRole("button", { name: t("ui.troubleshoot.retry") })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("ui.troubleshoot.skip") }));
     expect(await screen.findByText(t("ui.troubleshoot.step", { n: 2, total: 3 }))).toBeInTheDocument();
-    expect(skip).toHaveBeenCalledWith(0);
+    expect(skip).toHaveBeenCalledWith("network", 0);
     expect(after).not.toHaveBeenCalled();
   });
 
   it("when every step is used up it points to the report", async () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(st({ state: "exhausted" })));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.exhausted_title"))).toBeInTheDocument();
   });
 
   it("tells the user a restart is needed when the last fix asks for one", async () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(st({ state: "resolved", reboot: true })));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.reboot_note"))).toBeInTheDocument();
   });
 
   it("says a test could not be measured instead of calling it fine", async () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(suggest({ unmeasured: true })));
-    render(<Troubleshoot onBack={() => undefined} />);
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.unmeasured"))).toBeInTheDocument();
+  });
+
+  it("uses the wording of the troubleshooter it was opened for", async () => {
+    const start = vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(st()));
+    render(<Troubleshoot id="windows_update" onBack={() => undefined} />);
+    expect(await screen.findByRole("heading", { name: t("ui.troubleshoot.titles.windows_update") })).toBeInTheDocument();
+    expect(start).toHaveBeenCalledWith("windows_update");
+    expect(screen.getByText(t("ui.troubleshoot.texts.windows_update.healthy"))).toBeInTheDocument();
+  });
+
+  it("shows hints for readings no step can fix, even when nothing needs repair", async () => {
+    vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(st({ hints: ["high_ram"] })));
+    render(<Troubleshoot id="slowness" onBack={() => undefined} />);
+    expect(await screen.findByText(t("ui.troubleshoot.hints.high_ram"))).toBeInTheDocument();
+  });
+
+  it("after a fix it explains that the connection is re-tested, not that the scan issue remains", async () => {
+    vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(suggest()));
+    vi.spyOn(api, "applyFix").mockResolvedValue(ok(applied({ verified: false })));
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
+    fireEvent.click(await screen.findByRole("button", { name: t("ui.troubleshoot.apply") }));
+    fireEvent.click(await screen.findByRole("button", { name: t("ui.fix.confirm") }));
+    expect(await screen.findByText(t("ui.troubleshoot.unverified"))).toBeInTheDocument();
+    expect(screen.queryByText(t("ui.fix.unverified"))).not.toBeInTheDocument();
   });
 
   it("shows an error with a way back when the first test cannot start", async () => {
     vi.spyOn(api, "troubleshootStart").mockResolvedValue({ ok: false, error: "boom" });
     const onBack = vi.fn();
-    render(<Troubleshoot onBack={onBack} />);
+    render(<Troubleshoot id="network" onBack={onBack} />);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: t("ui.troubleshoot.back") }));
     expect(onBack).toHaveBeenCalled();

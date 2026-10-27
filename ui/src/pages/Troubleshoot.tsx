@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type ApplyResult, type FixPlan, type TroubleshootState } from "../api";
+import { api, type ApplyResult, type FixPlan, type TroubleshooterId, type TroubleshootState } from "../api";
 import { StepCard } from "../components/StepCard";
 import { t } from "../i18n";
 import { FixPreview } from "./FixPreview";
@@ -12,11 +12,11 @@ type Phase =
   | { name: "retry"; s: TroubleshootState };
 
 /**
- * Guided network troubleshooter. The state machine lives in Rust; this page
+ * One guided troubleshooter. The state machine lives in Rust; this page
  * only shows its answer. Every repair goes through the normal preview and
  * confirmation, one step at a time.
  */
-export function Troubleshoot({ onBack }: { onBack: () => void }) {
+export function Troubleshoot({ id, onBack }: { id: TroubleshooterId; onBack: () => void }) {
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
 
   const show = useCallback((r: Awaited<ReturnType<typeof api.troubleshootStart>>) => {
@@ -25,11 +25,11 @@ export function Troubleshoot({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     let alive = true;
-    void api.troubleshootStart().then((r) => alive && show(r));
+    void api.troubleshootStart(id).then((r) => alive && show(r));
     return () => {
       alive = false;
     };
-  }, [show]);
+  }, [id, show]);
 
   const openFix = async (s: TroubleshootState) => {
     if (!s.fix) return;
@@ -55,12 +55,12 @@ export function Troubleshoot({ onBack }: { onBack: () => void }) {
     // A declined or failed fix never reaches the re-test: nothing changed.
     if (result.outcome.status !== "applied") return setPhase({ name: "retry", s });
     setPhase({ name: "loading" });
-    show(await api.troubleshootAfterFix(s.step ?? 0));
+    show(await api.troubleshootAfterFix(id, s.step ?? 0));
   };
 
   const skip = async (s: TroubleshootState) => {
     setPhase({ name: "loading" });
-    show(await api.troubleshootSkip(s.step ?? 0));
+    show(await api.troubleshootSkip(id, s.step ?? 0));
   };
 
   if (phase.name === "fix") {
@@ -72,13 +72,14 @@ export function Troubleshoot({ onBack }: { onBack: () => void }) {
         onConfirm={() => void confirm()}
         onCancel={() => setPhase({ name: "state", s: phase.s })}
         onDone={() => void done()}
+        unverifiedKey="ui.troubleshoot.unverified"
       />
     );
   }
 
   return (
     <main>
-      <h1>{t("ui.troubleshoot.title")}</h1>
+      <h1>{t(`ui.troubleshoot.titles.${id}`)}</h1>
       {phase.name === "loading" && <p role="status">{t("ui.troubleshoot.loading")}</p>}
       {phase.name === "error" && <p role="alert">{t("ui.troubleshoot.error")}</p>}
       {phase.name === "retry" && (
@@ -101,9 +102,18 @@ export function Troubleshoot({ onBack }: { onBack: () => void }) {
       {phase.name === "state" && phase.s.state !== "suggest" && (
         <section className="card">
           <h2>{t(`ui.troubleshoot.${phase.s.state}_title`)}</h2>
-          <p>{t(`ui.troubleshoot.${phase.s.state}_text`)}</p>
+          <p>{t(`ui.troubleshoot.texts.${id}.${phase.s.state}`)}</p>
           {phase.s.state === "resolved" && phase.s.reboot && <p>{t("ui.troubleshoot.reboot_note")}</p>}
         </section>
+      )}
+      {phase.name === "state" && phase.s.hints.length > 0 && (
+        <ul className="plain" aria-label={t("ui.troubleshoot.hints_label")}>
+          {phase.s.hints.map((h) => (
+            <li key={h} className="muted">
+              {t(`ui.troubleshoot.hints.${h}`)}
+            </li>
+          ))}
+        </ul>
       )}
       <div className="row">
         <button type="button" onClick={onBack}>

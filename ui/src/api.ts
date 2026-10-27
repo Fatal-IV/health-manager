@@ -95,6 +95,8 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Res
   }
 }
 
+export type TroubleshooterId = "network" | "windows_update" | "system_files" | "slowness";
+
 export interface TroubleshootState {
   state: "healthy" | "suggest" | "resolved" | "exhausted";
   step: number | null;
@@ -102,6 +104,8 @@ export interface TroubleshootState {
   fix: string | null;
   reboot: boolean;
   unmeasured: boolean;
+  /** Keys of readings no step can fix (`high_ram`, `high_cpu`). */
+  hints: string[];
 }
 
 export const api = {
@@ -116,9 +120,9 @@ export const api = {
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
   applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),
   getSession: () => call<Session>("get_session"),
-  troubleshootStart: () => call<TroubleshootState>("troubleshoot_start"),
-  troubleshootAfterFix: (step: number) => call<TroubleshootState>("troubleshoot_after_fix", { step }),
-  troubleshootSkip: (step: number) => call<TroubleshootState>("troubleshoot_skip", { step }),
+  troubleshootStart: (id: TroubleshooterId) => call<TroubleshootState>("troubleshoot_start", { id }),
+  troubleshootAfterFix: (id: TroubleshooterId, step: number) => call<TroubleshootState>("troubleshoot_after_fix", { id, step }),
+  troubleshootSkip: (id: TroubleshooterId, step: number) => call<TroubleshootState>("troubleshoot_skip", { id, step }),
   exportReport: (format: ReportFormat, path: string) => call<void>("export_report", { format, path }),
   onProgress: (cb: (p: Progress) => void) => listen<Progress>("scan-progress", (e) => cb(e.payload)),
 };
