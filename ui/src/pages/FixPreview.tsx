@@ -82,7 +82,7 @@ export function Outcome({ result, fix }: { result: ApplyResult; fix?: string }) 
         <div>
           <p>{t(o.message, o.params)}</p>
           <p className={result.verified ? "s-good" : "s-warning"}>
-            {result.verified ? own(fix, "verified", "ui.fix.verified") : t("ui.fix.unverified")}
+            {result.verified ? own(fix, "verified", "ui.fix.verified") : own(fix, "unverified", "ui.fix.unverified")}
           </p>
         </div>
       </div>

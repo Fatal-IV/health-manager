@@ -19,6 +19,15 @@ describe("FixPreview", () => {
     expect(screen.queryByRole("button", { name: t("ui.fix.confirm") })).not.toBeInTheDocument();
   });
 
+  it("a network fix is not called unverified-with-the-issue-still-listed: it has no scan issue to check", () => {
+    show({
+      plan: plan({ fix: "flush_dns", summary_key: "fix.flush_dns.summary", changes: ["fix.flush_dns.change.1"] }),
+      result: applied({ verified: false }),
+    });
+    expect(screen.getByText(t("fix.flush_dns.unverified"))).toBeInTheDocument();
+    expect(screen.queryByText(t("ui.fix.unverified"))).not.toBeInTheDocument();
+  });
+
   it("lists what will change before asking for confirmation", () => {
     const onConfirm = vi.fn();
     show({ onConfirm });

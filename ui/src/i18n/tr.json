@@ -198,12 +198,14 @@
       }
     },
     "flush_dns": {
+      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "DNS önbelleğini temizle",
       "change": {
         "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Windows sizden bir kez izin isteyecek."
       }
     },
     "renew_ip": {
+      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "IP adresini yenile",
       "change": {
         "1": "Bilgisayar ağdan aldığı IP adresini bırakıp yenisini isteyecek. İnternet bağlantınız birkaç saniyeliğine kesilir.",
@@ -211,6 +213,7 @@
       }
     },
     "reset_winsock": {
+      "unverified": "Uygulandı. Bağlantının düzelip düzelmediği hemen sonra test edilecek.",
       "summary": "Ağ ayarlarını sıfırla (Winsock)",
       "change": {
         "1": "Windows'un ağ bileşenleri varsayılan duruma döndürülecek. İşlemin tamamlanması için bilgisayarı yeniden başlatmanız gerekir.",
