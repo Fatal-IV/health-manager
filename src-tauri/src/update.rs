@@ -52,6 +52,20 @@ struct Asset {
     browser_download_url: String,
 }
 
+/// What a release says about itself, for the "what is new" panel.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+pub struct ReleaseNotes {
+    pub version: String,
+    pub notes: String,
+}
+
+/// The notes part of a release body: everything before the `---` line that the release script
+/// puts above the checksum.
+fn clean_notes(body: &str) -> String {
+    let kept: Vec<&str> = body.lines().take_while(|l| l.trim() != "---").collect();
+    kept.join("\n").trim().chars().take(2000).collect()
+}
+
 /// `v1.2.3` or `1.2.3`, exactly three numeric parts.
 pub fn parse_version(s: &str) -> Option<(u32, u32, u32)> {
     let mut it = s.trim().trim_start_matches('v').split('.');
@@ -87,7 +101,7 @@ pub fn parse_release(json: &str, current: &str) -> Option<UpdateInfo> {
     };
     Some(UpdateInfo {
         version: format!("{}.{}.{}", newest.0, newest.1, newest.2),
-        notes: r.body.unwrap_or_default().chars().take(2000).collect(),
+        notes: clean_notes(&r.body.unwrap_or_default()),
         installer_url: url_of(INSTALLER_ASSET)?,
         signature_url: url_of(SIGNATURE_ASSET)?,
     })
@@ -140,6 +154,27 @@ pub fn check() -> Result<Option<UpdateInfo>, String> {
     }
 }
 
+/// The notes of the release this build came from; `Ok(None)` when there are none to show.
+pub fn current_notes() -> Result<Option<ReleaseNotes>, String> {
+    let version = env!("CARGO_PKG_VERSION");
+    let url = format!("https://api.github.com/repos/{REPO}/releases/tags/v{version}");
+    match get(&url, MAX_API_BYTES, 15) {
+        Ok(body) => Ok(parse_notes(&String::from_utf8_lossy(&body), version)),
+        Err(e) if e.contains("404") => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// The notes of a `releases/tags/...` answer, if they are for `version` and not empty.
+pub fn parse_notes(json: &str, version: &str) -> Option<ReleaseNotes> {
+    let r: Release = serde_json::from_str(json).ok()?;
+    if r.draft || parse_version(&r.tag_name)? != parse_version(version)? {
+        return None;
+    }
+    let notes = clean_notes(&r.body.unwrap_or_default());
+    (!notes.is_empty()).then(|| ReleaseNotes { version: version.to_string(), notes })
+}
+
 /// Downloads the newest installer, verifies its signature and starts it.
 /// The caller closes this program afterwards so the installer can replace the files.
 pub fn download_and_launch() -> Result<(), String> {
@@ -164,6 +199,9 @@ pub fn download_and_launch() -> Result<(), String> {
     launch_installer(&path)
 }
 
+/// Tells the installer to start the program again by itself once it is done.
+const RELAUNCH_ARG: &str = "--relaunch";
+
 /// The installer asks for administrator rights in its manifest, which `Command::spawn`
 /// (CreateProcess) cannot satisfy: it fails with "elevation required". ShellExecuteExW
 /// `runas` shows the Windows permission prompt instead; declining it is an error and the
@@ -175,11 +213,13 @@ fn launch_installer(path: &std::path::Path) -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
     let file = HSTRING::from(path.as_os_str());
+    let params = HSTRING::from(RELAUNCH_ARG);
     let mut info = SHELLEXECUTEINFOW {
         cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
         fMask: SEE_MASK_NOASYNC,
         lpVerb: w!("runas"),
         lpFile: PCWSTR(file.as_ptr()),
+        lpParameters: PCWSTR(params.as_ptr()),
         nShow: SW_SHOWNORMAL.0,
         ..Default::default()
     };
@@ -189,9 +229,17 @@ fn launch_installer(path: &std::path::Path) -> Result<(), String> {
 #[cfg(not(windows))]
 fn launch_installer(path: &std::path::Path) -> Result<(), String> {
     std::process::Command::new(path)
+        .arg(RELAUNCH_ARG)
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_release_notes() -> Result<Option<ReleaseNotes>, String> {
+    tauri::async_runtime::spawn_blocking(current_notes)
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -251,6 +299,23 @@ mod tests {
         let u = parse_release(&good("v0.3.0", ""), "0.2.4").unwrap();
         assert_eq!(u.version, "0.3.0");
         assert_eq!(u.notes, "notes");
+    }
+
+    #[test]
+    fn notes_stop_at_the_checksum_line() {
+        assert_eq!(clean_notes("- one\n- two\n\n---\nSHA-256: abc"), "- one\n- two");
+        assert_eq!(clean_notes("only text"), "only text");
+        assert_eq!(clean_notes("---\nSHA-256: abc"), "");
+    }
+
+    #[test]
+    fn release_notes_are_for_this_version_only() {
+        let json = |tag: &str, body: &str| serde_json::json!({ "tag_name": tag, "body": body }).to_string();
+        let n = parse_notes(&json("v0.3.7", "- new\n\n---\nSHA-256: x"), "0.3.7").unwrap();
+        assert_eq!((n.version.as_str(), n.notes.as_str()), ("0.3.7", "- new"));
+        assert!(parse_notes(&json("v0.3.6", "- old"), "0.3.7").is_none());
+        assert!(parse_notes(&json("v0.3.7", ""), "0.3.7").is_none());
+        assert!(parse_notes("not json", "0.3.7").is_none());
     }
 
     #[test]

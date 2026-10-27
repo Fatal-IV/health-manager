@@ -79,6 +79,12 @@ export interface UpdateInfo {
   notes: string;
 }
 
+/** What the running version brings, as its release describes it. */
+export interface ReleaseNotes {
+  version: string;
+  notes: string;
+}
+
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Result<T>> {
@@ -96,6 +102,7 @@ export const api = {
   getSystemSummary: () => call<SystemSummary>("get_system_summary"),
   checkUpdate: () => call<UpdateInfo | null>("check_update"),
   installUpdate: () => call<void>("install_update"),
+  getReleaseNotes: () => call<ReleaseNotes | null>("get_release_notes"),
   openWindowsUpdate: () => call<void>("open_windows_update"),
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
   applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),

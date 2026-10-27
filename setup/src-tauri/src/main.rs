@@ -11,6 +11,8 @@ struct Ctx {
     config: Config,
     mode: Mode,
     auto_start: bool,
+    /// Started by the program's own updater: start the program again when done, no extra click.
+    relaunch: bool,
     installed: Option<String>,
 }
 
@@ -19,6 +21,7 @@ struct Info {
     config: Config,
     mode: Mode,
     auto_start: bool,
+    relaunch: bool,
     installed: Option<String>,
     version: &'static str,
     payload_ok: bool,
@@ -41,6 +44,7 @@ fn get_setup_info(ctx: State<'_, Ctx>) -> Info {
         config: ctx.config.clone(),
         mode: ctx.mode,
         auto_start: ctx.auto_start,
+        relaunch: ctx.relaunch,
         installed: ctx.installed.clone(),
         version: env!("CARGO_PKG_VERSION"),
         payload_ok: system::payload_ok(),
@@ -78,9 +82,12 @@ fn main() {
         .unwrap_or_default();
     let installed = system::installed_version(&config.product);
     let (mode, auto_start) = decide_mode(&args, &own_name, installed.as_deref(), env!("CARGO_PKG_VERSION"));
+    // Only an update or reinstall can be relaunched: a first install and the uninstaller are never silent.
+    let relaunch = args.iter().any(|a| a == "--relaunch") && matches!(mode, Mode::Update | Mode::Reinstall);
+    let auto_start = auto_start || relaunch;
 
     tauri::Builder::default()
-        .manage(Ctx { config, mode, auto_start, installed })
+        .manage(Ctx { config, mode, auto_start, relaunch, installed })
         .invoke_handler(tauri::generate_handler![get_setup_info, run_setup, launch_app])
         .run(tauri::generate_context!())
         .expect("error while running the installer");

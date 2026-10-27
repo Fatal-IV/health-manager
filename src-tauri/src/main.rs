@@ -24,6 +24,7 @@ fn main() {
             commands::get_session,
             commands::export_report,
             update::check_update,
+            update::get_release_notes,
             update::install_update,
         ])
         .run(tauri::generate_context!())

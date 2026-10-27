@@ -228,12 +228,19 @@
   },
   "ui": {
     "update": {
-      "available": "Yeni sürüm hazır: {{version}}",
-      "install": "Güncelle",
-      "installing": "İndiriliyor…",
-      "later": "Sonra",
+      "corner": "Güncelleme",
+      "close": "Kapat",
+      "checking_title": "Güncellemeler denetleniyor",
+      "checking": "Yeni bir sürüm olup olmadığına bakılıyor…",
+      "current_title": "Güncelsiniz",
+      "current": "{{version}} sürümünü kullanıyorsunuz. Daha yeni bir sürüm yok.",
+      "installing_title": "Sürüm {{version}} indiriliyor",
+      "installing": "Sürüm {{version}} indirilip kuruluyor. Bitince uygulama kendiliğinden yeniden açılır.",
+      "failed_title": "Güncellenemedi",
       "retry": "Tekrar dene",
-      "failed": "Güncelleme yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin."
+      "failed": "Güncelleme yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.",
+      "news_title": "Sürüm {{version}} ile gelenler",
+      "news_ok": "Tamam"
     },
     "home": {
       "title": "Bilgisayarınızın sağlığını kontrol edelim",

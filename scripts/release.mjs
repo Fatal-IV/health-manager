@@ -40,7 +40,11 @@ tauri("signer", "sign", setup);
 const hash = createHash("sha256").update(readFileSync(setup)).digest("hex");
 writeFileSync(`${setup}.sha256`, `${hash}  Saglik-Denetimi-Setup.exe\n`);
 const notes = join(out, "notes.md");
-writeFileSync(notes, `Sağlık Denetimi ${version}\n\nSHA-256: \`${hash}\`\n`);
+// What is new in this version: release-notes/v<version>.md, one "- " line per change. The app shows
+// everything above the "---" line to the user after an update; the checksum goes below it.
+const notesFile = join(root, "release-notes", `v${version}.md`);
+const changes = existsSync(notesFile) ? readFileSync(notesFile, "utf8").trim() : "";
+writeFileSync(notes, `${changes || `Sağlık Denetimi ${version}`}\n\n---\nSHA-256: \`${hash}\`\n`);
 console.log(`release ready: ${out}\nSHA-256 ${hash}`);
 
 if (publish) {

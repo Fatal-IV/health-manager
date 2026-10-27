@@ -68,6 +68,8 @@ async function run() {
     $("done-title").textContent = fill(m.done_title);
     $("done-text").textContent = fill(m.done_text);
     setBusy(false);
+    // The program's own updater asked for a restart: skip the done screen.
+    if (info.relaunch) return void finish();
     show("done");
   } catch (e) {
     const err = typeof e === "object" && e ? e : { code: "generic", detail: String(e) };
