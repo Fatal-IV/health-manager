@@ -1,7 +1,7 @@
 import { ArrowClockwise, FileText } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { Category, Issue, ScanReport } from "../api";
-import { CategoryPanel, RANK, categoryStatus } from "../components/CategoryCard";
+import { CategoryPanel } from "../components/CategoryCard";
 import { Dock } from "../components/Dock";
 import { canBatch, type FixHandler } from "../components/IssueItem";
 import { t } from "../i18n";
@@ -30,12 +30,8 @@ export function Results({
   );
   const [chosen, setChosen] = useState<Category | null>(initial ?? null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  // Open on the area that needs attention first, so the first thing seen is the thing to do.
-  const worst = items.reduce<(typeof items)[number] | undefined>(
-    (w, i) => (!w || RANK[categoryStatus(i.results)] > RANK[categoryStatus(w.results)] ? i : w),
-    undefined,
-  );
-  const current = items.find((i) => i.category === chosen) ?? worst;
+  // Nothing opens by default: the dock names an area on hover and a click opens it.
+  const current = items.find((i) => i.category === chosen);
   const score = report.cancelled ? null : report.score.value;
   const shown = score === null ? "—" : String(score);
   // Only issues that still exist and can be fixed stay picked after a re-scan.
@@ -94,7 +90,9 @@ export function Results({
           )}
         </div>
       )}
-      {current && <Dock items={items} selected={current.category} onSelect={setChosen} />}
+      {items.length > 0 && (
+        <Dock items={items} selected={current?.category ?? null} onSelect={(c) => setChosen((prev) => (prev === c ? null : c))} />
+      )}
     </div>
   );
 }

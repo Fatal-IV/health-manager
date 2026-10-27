@@ -9,7 +9,7 @@ export function Dock({
   onSelect,
 }: {
   items: { category: Category; results: CheckResult[] }[];
-  selected: Category;
+  selected: Category | null;
   onSelect: (c: Category) => void;
 }) {
   return (

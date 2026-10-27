@@ -56,6 +56,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     await flush();
     await screen.findByText(t("ui.results.title"));
+    fireEvent.click(await screen.findByTestId("card-storage"));
     for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
     fireEvent.click(screen.getByRole("button", { name: `${t("ui.results.fix_selected")} (2)` }));
     await flush();
@@ -75,6 +76,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     await flush();
     await screen.findByText(t("ui.results.title"));
+    fireEvent.click(await screen.findByTestId("card-storage"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.rescan_area") }));
     await flush();
     expect(api.startScan).toHaveBeenLastCalledWith("quick", ["storage"]);
@@ -100,6 +102,7 @@ describe("App", () => {
     await flush();
     expect(await screen.findByText(t("ui.results.title"))).toBeInTheDocument();
 
+    fireEvent.click(await screen.findByTestId("card-storage"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.fix") }));
     await flush();
     expect(api.getFixPlan).toHaveBeenCalledWith("clean_temp", undefined);
@@ -149,6 +152,7 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     await flush();
+    fireEvent.click(await screen.findByTestId("card-performance"));
     fireEvent.click(await screen.findByRole("button", { name: `${t("ui.results.fix_item")}: Foo` }));
     await flush();
     expect(api.getFixPlan).toHaveBeenCalledWith("disable_startup_item", "HKCU|Foo/Bar");
@@ -163,6 +167,7 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     await flush();
+    fireEvent.click(await screen.findByTestId("card-storage"));
     fireEvent.click(await screen.findByRole("button", { name: t("ui.results.fix") }));
     await flush();
     expect(screen.getByRole("alert")).toHaveTextContent(t("fix.result.invalid"));
@@ -177,6 +182,7 @@ describe("App", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: t("ui.home.start") }));
     await flush();
+    fireEvent.click(await screen.findByTestId("card-storage"));
     fireEvent.click(await screen.findByRole("button", { name: t("ui.results.fix") }));
     await flush();
     fireEvent.click(screen.getByRole("button", { name: t("ui.fix.confirm") }));

@@ -9,6 +9,15 @@ import { Results } from "./Results";
 const noop = () => undefined;
 
 describe("Results", () => {
+  it("opens no category panel by default; a dock click opens it and a second click closes it", () => {
+    render(<Results report={report()} onFix={noop} onReport={noop} onRescan={noop} />);
+    expect(screen.queryByRole("button", { name: t("ui.results.fix") })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("card-storage"));
+    expect(screen.getByRole("button", { name: t("ui.results.fix") })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("card-storage"));
+    expect(screen.queryByRole("button", { name: t("ui.results.fix") })).not.toBeInTheDocument();
+  });
+
   it("card status follows the worst issue", () => {
     const r = report({
       results: [
@@ -45,6 +54,7 @@ describe("Results", () => {
       ],
     });
     render(<Results report={r} onFix={noop} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByTestId("card-storage"));
     expect(screen.getAllByRole("button", { name: t("ui.results.fix") })).toHaveLength(1);
   });
 
@@ -53,6 +63,7 @@ describe("Results", () => {
       results: [check({ issues: [issue({ id: "a" }), issue({ id: "b", fix: "empty_recycle_bin" })] })],
     });
     render(<Results report={r} onFix={noop} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByTestId("card-storage"));
     const fixButtons = screen.getAllByRole("button", { name: t("ui.results.fix") });
     expect(fixButtons).toHaveLength(2);
     expect(screen.queryByRole("button", { name: /tümü|hepsi|toplu/i })).not.toBeInTheDocument();
@@ -61,6 +72,7 @@ describe("Results", () => {
   it("clicking a fix passes the issue to the handler", () => {
     const onFix = vi.fn();
     render(<Results report={report()} onFix={onFix} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByTestId("card-storage"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.fix") }));
     expect(onFix).toHaveBeenCalledTimes(1);
     expect(onFix.mock.calls[0][0].id).toBe("storage.temp_files");
@@ -88,6 +100,7 @@ describe("Results", () => {
         onRescan={noop}
       />,
     );
+    fireEvent.click(screen.getByTestId("card-performance"));
     fireEvent.click(screen.getByRole("button", { name: `${t("ui.results.fix_item")}: Updater` }));
     expect(onFix).toHaveBeenCalledWith(startup, "HKLM|Vendor\\Updater", "Updater");
     expect(screen.getAllByRole("button", { name: new RegExp(t("ui.results.fix_item")) })).toHaveLength(2);
@@ -99,6 +112,7 @@ describe("Results", () => {
     render(
       <Results report={report({ results: [check({ check_id: "u", category: "update", issues: [pending] })] })} onFix={noop} onReport={noop} onRescan={noop} />,
     );
+    fireEvent.click(screen.getByTestId("card-update"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.open_update") }));
     expect(open).toHaveBeenCalledTimes(1);
   });
@@ -117,6 +131,7 @@ describe("Results", () => {
         onBulkFix={onBulk}
       />,
     );
+    fireEvent.click(screen.getByTestId("card-storage"));
     expect(screen.queryByRole("button", { name: new RegExp(t("ui.results.fix_selected")) })).not.toBeInTheDocument();
     const boxes = screen.getAllByRole("checkbox");
     expect(boxes).toHaveLength(2);
@@ -130,6 +145,7 @@ describe("Results", () => {
   it("re-scanning one area reports that area", () => {
     const onArea = vi.fn();
     render(<Results report={report()} onFix={noop} onReport={noop} onRescan={noop} onRescanArea={onArea} />);
+    fireEvent.click(screen.getByTestId("card-storage"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.rescan_area") }));
     expect(onArea).toHaveBeenCalledWith("storage");
   });
@@ -138,6 +154,7 @@ describe("Results", () => {
     const boot = issue({ id: "system.boot_unknown", category: "system", status: "unknown", fix: "read_boot_time", title_key: "issue.system.boot_unknown.title", why_key: "issue.system.boot_unknown.why" });
     const onFix = vi.fn();
     render(<Results report={report({ results: [check({ check_id: "system.boot", category: "system", issues: [boot] })] })} onFix={onFix} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByTestId("card-system"));
     fireEvent.click(screen.getByRole("button", { name: t("ui.results.read_boot_time") }));
     expect(onFix).toHaveBeenCalledWith(boot);
   });
@@ -157,6 +174,7 @@ describe("Results", () => {
 
   it("technical evidence stays inside a collapsed details element", () => {
     render(<Results report={report()} onFix={noop} onReport={noop} onRescan={noop} />);
+    fireEvent.click(screen.getByTestId("card-storage"));
     const details = screen.getByText("temp 2.0 GiB").closest("details")!;
     expect(details.open).toBe(false);
   });
