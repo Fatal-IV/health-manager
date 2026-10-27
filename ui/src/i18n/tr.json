@@ -196,6 +196,26 @@
         "1": "Windows'un kendi onarım araçları çalıştırılıp bozulmuş sistem dosyaları onarılacak. Bu birkaç dakika sürebilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
       }
+    },
+    "flush_dns": {
+      "summary": "DNS önbelleğini temizle",
+      "change": {
+        "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Yönetici izni gerekmez."
+      }
+    },
+    "renew_ip": {
+      "summary": "IP adresini yenile",
+      "change": {
+        "1": "Bilgisayar ağdan aldığı IP adresini bırakıp yenisini isteyecek. İnternet bağlantınız birkaç saniyeliğine kesilir.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    },
+    "reset_winsock": {
+      "summary": "Ağ ayarlarını sıfırla (Winsock)",
+      "change": {
+        "1": "Windows'un ağ bileşenleri varsayılan duruma döndürülecek. İşlemin tamamlanması için bilgisayarı yeniden başlatmanız gerekir.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
     }
   },
   "category": {

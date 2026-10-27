@@ -27,10 +27,16 @@ pub enum FixId {
     /// Read-only: reads the boot duration from the event log, which Windows only
     /// shows to administrators. Changes nothing on the system.
     ReadBootTime,
+    /// Clears the DNS resolver cache. No administrator needed.
+    FlushDns,
+    /// Releases and renews the IP lease; the connection drops for a moment.
+    RenewIp,
+    /// Resets the Winsock catalog; a restart is needed to finish.
+    ResetWinsock,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 10] = [
+    pub const ALL: [FixId; 13] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -41,6 +47,9 @@ impl FixId {
         FixId::EnableFirewall,
         FixId::RunSfcDism,
         FixId::ReadBootTime,
+        FixId::FlushDns,
+        FixId::RenewIp,
+        FixId::ResetWinsock,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -58,6 +67,9 @@ impl FixId {
             FixId::EnableFirewall => 7,
             FixId::RunSfcDism => 8,
             FixId::ReadBootTime => 9,
+            FixId::FlushDns => 10,
+            FixId::RenewIp => 11,
+            FixId::ResetWinsock => 12,
         }
     }
 
@@ -72,7 +84,10 @@ impl FixId {
             | FixId::EnableDefenderRealtime
             | FixId::EnableFirewall
             | FixId::RunSfcDism
-            | FixId::ReadBootTime => false,
+            | FixId::ReadBootTime
+            | FixId::FlushDns
+            | FixId::RenewIp
+            | FixId::ResetWinsock => false,
         }
     }
 
@@ -88,6 +103,9 @@ impl FixId {
             FixId::EnableFirewall => "enable_firewall",
             FixId::RunSfcDism => "run_sfc_dism",
             FixId::ReadBootTime => "read_boot_time",
+            FixId::FlushDns => "flush_dns",
+            FixId::RenewIp => "renew_ip",
+            FixId::ResetWinsock => "reset_winsock",
         }
     }
 }
@@ -152,6 +170,9 @@ fn change_count(fix: FixId) -> usize {
         FixId::EnableFirewall => 1,
         FixId::RunSfcDism => 2,
         FixId::ReadBootTime => 2,
+        FixId::FlushDns => 1,
+        FixId::RenewIp => 2,
+        FixId::ResetWinsock => 2,
     }
 }
 
@@ -165,6 +186,8 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::EnableFirewall
             | FixId::RunSfcDism
             | FixId::ReadBootTime
+            | FixId::RenewIp
+            | FixId::ResetWinsock
     )
 }
 
@@ -283,6 +306,9 @@ mod tests {
             FixId::EnableFirewall => FixId::EnableFirewall,
             FixId::RunSfcDism => FixId::RunSfcDism,
             FixId::ReadBootTime => FixId::ReadBootTime,
+            FixId::FlushDns => FixId::FlushDns,
+            FixId::RenewIp => FixId::RenewIp,
+            FixId::ResetWinsock => FixId::ResetWinsock,
         }
     }
 
@@ -299,6 +325,9 @@ mod tests {
             FixId::EnableFirewall,
             FixId::RunSfcDism,
             FixId::ReadBootTime,
+            FixId::FlushDns,
+            FixId::RenewIp,
+            FixId::ResetWinsock,
         ]
         .into_iter()
         .map(witness)
@@ -321,6 +350,20 @@ mod tests {
         for (i, f) in FixId::ALL.iter().enumerate() {
             assert_eq!(f.index(), i, "{f:?} out of order or duplicated");
         }
+    }
+
+    #[test]
+    fn new_network_fixes_have_expected_plans() {
+        let flush = fix_plan(FixId::FlushDns, None);
+        assert!(!flush.needs_admin && !flush.reversible);
+        assert_eq!(flush.changes.len(), 1);
+        let renew = fix_plan(FixId::RenewIp, None);
+        assert!(renew.needs_admin && !renew.reversible);
+        assert_eq!(renew.changes.len(), 2);
+        let winsock = fix_plan(FixId::ResetWinsock, None);
+        assert!(winsock.needs_admin && !winsock.reversible);
+        assert_eq!(winsock.changes.len(), 2);
+        assert!(validate_arg(FixId::RenewIp, Some("x")).is_err());
     }
 
     #[test]
