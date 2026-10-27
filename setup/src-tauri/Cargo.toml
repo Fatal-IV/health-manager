@@ -1,7 +1,16 @@
 [package]
 name = "setup"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
+
+[lib]
+name = "setup_logic"
+path = "src/lib.rs"
+
+[[bin]]
+name = "setup"
+path = "src/main.rs"
+test = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -14,5 +23,6 @@ winreg = "0.52"
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Com",
+    "Win32_System_SystemInformation",
     "Win32_UI_Shell",
 ] }

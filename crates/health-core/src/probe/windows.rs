@@ -348,7 +348,7 @@ fn map_evt_error(raw: u32) -> Result<Option<u32>, ProbeError> {
 }
 
 /// Newest boot duration (Event ID 100) in seconds; `None` when there is none.
-fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
+pub fn boot_seconds_from_event_log() -> Result<Option<u32>, ProbeError> {
     const ERROR_NO_MORE_ITEMS: u32 = 259;
     let raw = |e: &windows::core::Error| e.code().0 as u32;
     let channel = HSTRING::from("Microsoft-Windows-Diagnostics-Performance/Operational");
@@ -1000,7 +1000,16 @@ impl SystemProbe for WindowsProbe {
     }
 
     fn boot_seconds(&self) -> Result<Option<u32>, ProbeError> {
-        boot_seconds_from_event_log()
+        // Without administrator rights the event log gives nothing; the startup task
+        // installed with the app leaves the measured value beside the program.
+        let direct = boot_seconds_from_event_log();
+        if let Ok(Some(_)) = direct {
+            return direct;
+        }
+        match crate::boot_snapshot::read_beside_exe() {
+            Some(secs) => Ok(Some(secs)),
+            None => direct,
+        }
     }
 
     /// Needs administrator (SFC/DISM refuse to run otherwise). The app starts

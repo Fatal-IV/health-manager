@@ -1,3 +1,4 @@
+pub mod boot_snapshot;
 pub mod checks;
 pub mod engine;
 pub mod fixes;

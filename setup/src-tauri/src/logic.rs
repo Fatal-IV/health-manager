@@ -12,6 +12,8 @@ pub struct Product {
     pub exe: String,
     pub helper: String,
     pub folder: String,
+    /// Name of the startup task that measures the boot time.
+    pub task: String,
 }
 
 /// `theme` and `texts` are handed to the window as they are, so they can be changed
@@ -58,6 +60,44 @@ pub fn decide_mode(args: &[String], own_name: &str, installed: Option<&str>, pay
     }
 }
 
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&apos;")
+}
+
+/// Task Scheduler definition: runs `<helper> --boot-snapshot` as SYSTEM a few minutes after
+/// every start (the boot event is written some time after Windows is up) and after sign-in.
+/// The helper lives in Program Files, so only an administrator could ever change what runs.
+pub fn boot_task_xml(helper: &Path) -> String {
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Açılış süresini ölçer ve uygulamanın izin istemeden gösterebilmesi için kaydeder.</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger><Delay>PT4M</Delay><Enabled>true</Enabled></BootTrigger>
+    <LogonTrigger><Delay>PT3M</Delay><Enabled>true</Enabled></LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author"><UserId>S-1-5-18</UserId><RunLevel>HighestAvailable</RunLevel></Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <ExecutionTimeLimit>PT1M</ExecutionTimeLimit>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec><Command>{}</Command><Arguments>--boot-snapshot</Arguments></Exec>
+  </Actions>
+</Task>
+"#,
+        xml_escape(&helper.to_string_lossy())
+    )
+}
+
 /// The folder to remove, or `None` when this does not look like our own installed copy.
 /// Guards against a stray `uninstall.exe` deleting some unrelated folder.
 pub fn uninstall_dir(own_exe: &Path, product: &Product) -> Option<PathBuf> {
@@ -91,6 +131,17 @@ mod tests {
         for k in ["title", "retry", "locked", "generic"] {
             assert!(c.texts["errors"][k].is_string(), "texts.errors.{k} missing");
         }
+    }
+
+    #[test]
+    fn boot_task_runs_the_helper_as_system_at_startup_and_logon() {
+        let xml = boot_task_xml(Path::new(r"C:\Program Files\Sağlık & Coix-helper.exe"));
+        assert!(xml.contains("<BootTrigger>") && xml.contains("<LogonTrigger>"));
+        assert!(xml.contains("<UserId>S-1-5-18</UserId>"));
+        assert!(xml.contains("<Arguments>--boot-snapshot</Arguments>"));
+        // The path is data: special characters must not break out of the element.
+        assert!(xml.contains(r"<Command>C:\Program Files\Sağlık &amp; Coix-helper.exe</Command>"));
+        assert!(!xml.contains("Sağlık & Co"));
     }
 
     #[test]

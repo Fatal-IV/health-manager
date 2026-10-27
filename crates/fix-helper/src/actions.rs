@@ -85,8 +85,8 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
 /// Reads the last boot duration from the event log. Needs administrator; changes nothing.
 #[cfg(windows)]
 fn read_boot_time(log: &mut Vec<String>) -> Result<Params, &'static str> {
-    use health_core::probe::{windows::WindowsProbe, SystemProbe};
-    match WindowsProbe::new().boot_seconds() {
+    // The event log itself: the snapshot is what this very run would refresh.
+    match health_core::probe::windows::boot_seconds_from_event_log() {
         Ok(Some(secs)) => {
             log.push(format!("last boot took {secs} s"));
             Ok(Params::from([("seconds".to_string(), secs.to_string())]))

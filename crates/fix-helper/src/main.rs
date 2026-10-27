@@ -1,6 +1,7 @@
 //! Elevated, allow-listed fix runner.
 //!
 //! `fix-helper --fix <id> [--arg <value>] --result <path>`
+//! `fix-helper --boot-snapshot` (startup task: leaves the boot time in `stateoot.json`)
 //!
 //! Exit codes: 0 success; 2 malformed command line, unknown fix id or
 //! invalid argument (nothing is run); 3 the fix failed or the result file
@@ -11,6 +12,7 @@ mod actions;
 mod cli;
 mod log;
 mod repair;
+mod snapshot;
 mod winfs;
 
 use actions::keys;
@@ -75,6 +77,10 @@ fn finish(path: &Path, fix: &str, arg: Option<&str>, r: FixResult, code: i32) ->
 
 fn real_main() -> i32 {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
+    // The startup task's own mode: no fix, no arguments, no result file.
+    if args.len() == 1 && args[0] == "--boot-snapshot" {
+        return snapshot::run();
+    }
     let req = match cli::parse_args(&args) {
         Ok(r) => r,
         Err(e) => {

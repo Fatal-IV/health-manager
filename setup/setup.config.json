@@ -6,7 +6,8 @@
     "description": "Windows bilgisayarınızın sağlığını kontrol eder.",
     "exe": "saglik-denetimi.exe",
     "helper": "fix-helper.exe",
-    "folder": "Sağlık Denetimi"
+    "folder": "Sağlık Denetimi",
+    "task": "SaglikDenetimi-BootTime"
   },
   "theme": {
     "accent": "#ff4a1c",
@@ -22,6 +23,7 @@
     "close": "Kapat",
     "tagline": "Bilgisayarınızın sağlığını tek tıkla kontrol eder",
     "desktop_shortcut": "Masaüstüne kısayol ekle",
+    "admin_note": "Windows bir kez izin isteyecek. Program, bilgisayarın Program Files klasörüne kurulur.",
     "no_payload": "Bu kurucu uygulama dosyalarını içermiyor. Lütfen resmi sürümü indirin.",
     "log_prefix": "Ayrıntılar",
     "install": {
@@ -68,9 +70,12 @@
       "prepare": "Hazırlanıyor…",
       "app": "Uygulama kopyalanıyor…",
       "helper": "Yardımcı program kopyalanıyor…",
+      "migrate": "Eski kurulum kontrol ediliyor…",
       "uninstaller": "Kaldırıcı hazırlanıyor…",
+      "task": "Açılış ölçümü hazırlanıyor…",
       "shortcuts": "Kısayollar oluşturuluyor…",
       "register": "Kayıt tamamlanıyor…",
+      "remove_task": "Açılış ölçümü kaldırılıyor…",
       "remove_files": "Dosyalar siliniyor…",
       "remove_shortcuts": "Kısayollar kaldırılıyor…",
       "remove_register": "Kayıt siliniyor…"

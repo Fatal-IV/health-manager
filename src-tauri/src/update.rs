@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::io::Read;
 
 /// `owner/name` of the GitHub repository that publishes the releases.
-pub const REPO: &str = "Fatal-IV/saglik-denetimi";
+pub const REPO: &str = "Fatal-IV/health-manager";
 const INSTALLER_ASSET: &str = "Saglik-Denetimi-Setup.exe";
 const SIGNATURE_ASSET: &str = "Saglik-Denetimi-Setup.exe.sig";
 /// minisign public key (the `.pub` file written by `tauri signer generate`).

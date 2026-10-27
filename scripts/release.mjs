@@ -11,7 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const repo = "Fatal-IV/saglik-denetimi"; // keep in step with REPO in src-tauri/src/update.rs
+const repo = "Fatal-IV/health-manager"; // keep in step with REPO in src-tauri/src/update.rs
 const publish = process.argv.includes("--publish");
 const version = JSON.parse(readFileSync(join(root, "src-tauri", "tauri.conf.json"), "utf8")).version;
 const keyPath = process.env.TAURI_SIGNING_PRIVATE_KEY_PATH ?? join(homedir(), ".saglik-denetimi", "updater.key");

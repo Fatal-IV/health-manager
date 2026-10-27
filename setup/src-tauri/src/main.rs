@@ -1,9 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod logic;
 mod system;
 
-use logic::{config, decide_mode, Config, Mode};
+use setup_logic::logic::{config, decide_mode, Config, Mode};
 use serde::{Deserialize, Serialize};
 use system::SetupError;
 use tauri::{Emitter, State};

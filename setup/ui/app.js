@@ -34,6 +34,7 @@ function render() {
   $("ready-terms").textContent = fill(m.terms);
   $("desktop-label").textContent = tx.desktop_shortcut;
   $("desktop-row").hidden = info.mode === "uninstall";
+  $("admin-note").textContent = tx.admin_note ?? "";
   $("working-title").textContent = fill(m.title);
   $("status").textContent = fill(m.working);
   $("close").setAttribute("aria-label", tx.close);

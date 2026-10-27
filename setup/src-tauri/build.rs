@@ -21,5 +21,7 @@ fn main() {
     stage(&release.join("saglik-denetimi.exe"), &out.join("payload_app.exe"));
     stage(&release.join("fix-helper.exe"), &out.join("payload_helper.exe"));
     println!("cargo:rerun-if-changed=../setup.config.json");
-    tauri_build::build()
+    println!("cargo:rerun-if-changed=setup.manifest");
+    let windows = tauri_build::WindowsAttributes::new().app_manifest(include_str!("setup.manifest"));
+    tauri_build::try_build(tauri_build::Attributes::new().windows_attributes(windows)).expect("build the installer resources");
 }
