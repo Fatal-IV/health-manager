@@ -175,6 +175,11 @@ pub fn parse_notes(json: &str, version: &str) -> Option<ReleaseNotes> {
     (!notes.is_empty()).then(|| ReleaseNotes { version: version.to_string(), notes })
 }
 
+/// Where the downloaded installer is saved: `<temp>/Saglik-Denetimi-Guncelleme/<random>/<installer name>`.
+fn download_target(temp: &std::path::Path, random: &str) -> std::path::PathBuf {
+    temp.join("Saglik-Denetimi-Guncelleme").join(random).join(INSTALLER_ASSET)
+}
+
 /// Downloads the newest installer, verifies its signature and starts it.
 /// The caller closes this program afterwards so the installer can replace the files.
 pub fn download_and_launch() -> Result<(), String> {
@@ -186,8 +191,12 @@ pub fn download_and_launch() -> Result<(), String> {
     let mut b = [0u8; 16];
     getrandom::fill(&mut b).map_err(|e| e.to_string())?;
     let hex: String = b.iter().map(|x| format!("{x:02x}")).collect();
-    let path = std::env::temp_dir().join(format!("saglik-denetimi-update-{hex}.exe"));
+    let path = download_target(&std::env::temp_dir(), &hex);
     {
+        // The unguessable part is a folder that must be new; the file keeps its plain name.
+        let dir = path.parent().ok_or("no folder")?;
+        std::fs::create_dir_all(dir.parent().ok_or("no folder")?).map_err(|e| e.to_string())?;
+        std::fs::create_dir(dir).map_err(|e| e.to_string())?;
         use std::io::Write;
         let mut f = std::fs::OpenOptions::new()
             .write(true)
@@ -262,6 +271,14 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn downloaded_installer_keeps_a_plain_name_and_hides_the_random_part_in_the_folder() {
+        let p = download_target(std::path::Path::new("T"), "abc123");
+        assert_eq!(p.file_name().unwrap().to_str().unwrap(), INSTALLER_ASSET);
+        assert!(!p.file_name().unwrap().to_str().unwrap().contains("abc123"));
+        assert!(p.parent().unwrap().ends_with("abc123"));
+    }
 
     const PAYLOAD: &[u8] = include_bytes!("../testdata/payload.txt");
     const PAYLOAD_SIG: &str = include_str!("../testdata/payload.txt.sig");
