@@ -200,7 +200,7 @@
     "flush_dns": {
       "summary": "DNS önbelleğini temizle",
       "change": {
-        "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Yönetici izni gerekmez."
+        "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Windows sizden bir kez izin isteyecek."
       }
     },
     "renew_ip": {

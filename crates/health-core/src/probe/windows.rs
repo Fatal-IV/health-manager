@@ -1158,6 +1158,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn real_network_probes_answer_without_panicking() {
+        let p = WindowsProbe::new();
+        let (g, d, i) = (p.gateway_reachable(), p.dns_resolves(), p.internet_reachable());
+        eprintln!("gateway={g:?} dns={d:?} internet={i:?}");
+        // A probe may say no or fail, but must not hang or panic.
+    }
+
+    #[test]
     fn real_probe_smoke() {
         let p = WindowsProbe::new();
         let disks = p.disks().unwrap();

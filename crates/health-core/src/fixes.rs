@@ -27,7 +27,7 @@ pub enum FixId {
     /// Read-only: reads the boot duration from the event log, which Windows only
     /// shows to administrators. Changes nothing on the system.
     ReadBootTime,
-    /// Clears the DNS resolver cache. No administrator needed.
+    /// Clears the DNS resolver cache. `ipconfig /flushdns` refuses to run unelevated.
     FlushDns,
     /// Releases and renews the IP lease; the connection drops for a moment.
     RenewIp,
@@ -186,6 +186,7 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::EnableFirewall
             | FixId::RunSfcDism
             | FixId::ReadBootTime
+            | FixId::FlushDns
             | FixId::RenewIp
             | FixId::ResetWinsock
     )
@@ -355,7 +356,7 @@ mod tests {
     #[test]
     fn new_network_fixes_have_expected_plans() {
         let flush = fix_plan(FixId::FlushDns, None);
-        assert!(!flush.needs_admin && !flush.reversible);
+        assert!(flush.needs_admin && !flush.reversible);
         assert_eq!(flush.changes.len(), 1);
         let renew = fix_plan(FixId::RenewIp, None);
         assert!(renew.needs_admin && !renew.reversible);

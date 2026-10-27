@@ -78,7 +78,7 @@ tüm varyantların kapsanması) güncellenir.
 
 | Düzeltme | Ne yapar | Yönetici | Geri alınabilir |
 |---|---|---|---|
-| `FlushDns` | DNS çözücü önbelleğini temizler | hayır | hayır (önbellek kendiliğinden dolar) |
+| `FlushDns` | DNS çözücü önbelleğini temizler | evet (`ipconfig /flushdns` yükseltme ister; gerçek makinede doğrulandı) | hayır (önbellek kendiliğinden dolar) |
 | `RenewIp` | IP kiralamasını bırakıp yeniler | evet | hayır |
 | `ResetWinsock` | Winsock kataloğunu sıfırlar; yeniden başlatma gerekir | evet | hayır |
 
