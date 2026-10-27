@@ -254,6 +254,8 @@
       "tile_windows": "Windows",
       "tile_uptime": "Açık kalma süresi",
       "tile_uptime_sub": "Son yeniden başlatmadan beri",
+      "tile_boot": "Açılış süresi",
+      "tile_boot_sub": "Windows son açılışta bu kadar sürede hazır oldu",
       "tile_disk": "Boş disk alanı ({{mount}})",
       "tile_disk_sub": "{{total}} GB'ın {{free}} GB'ı boş",
       "tile_memory": "Bellek (RAM)",

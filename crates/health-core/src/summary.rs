@@ -23,6 +23,8 @@ pub struct SystemSummary {
     /// e.g. `Windows 11 Home`; `None` when the system does not say.
     pub os: Option<String>,
     pub uptime_secs: Option<u64>,
+    /// How long the last start took, from the boot event or the startup task's snapshot.
+    pub boot_secs: Option<u32>,
     pub disk: Option<DiskSpace>,
     pub memory: Option<MemoryUse>,
 }
@@ -49,6 +51,7 @@ pub fn summarize(
     SystemSummary {
         os,
         uptime_secs,
+        boot_secs: p.boot_seconds().ok().flatten(),
         disk: p.disks().ok().and_then(|d| system_disk(&d, system_drive)),
         memory: p
             .ram_usage()
@@ -88,6 +91,15 @@ mod tests {
         assert_eq!(s.memory, Some(MemoryUse { used_bytes: 9 * GB, total_bytes: 16 * GB }));
         assert_eq!(s.os.as_deref(), Some("Windows 11 Home"));
         assert_eq!(s.uptime_secs, Some(3600));
+    }
+
+    #[test]
+    fn boot_time_is_reported_when_known_and_left_out_otherwise() {
+        let known = FakeProbe { boot_seconds: Some(42), ..Default::default() };
+        assert_eq!(summarize(&known, None, None, None).boot_secs, Some(42));
+        assert_eq!(summarize(&FakeProbe::default(), None, None, None).boot_secs, None);
+        let failing = FakeProbe { boot_error: Some(ProbeError::Unavailable("x".into())), ..Default::default() };
+        assert_eq!(summarize(&failing, None, None, None).boot_secs, None);
     }
 
     #[test]

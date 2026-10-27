@@ -68,6 +68,7 @@ export interface Progress {
 export interface SystemSummary {
   os: string | null;
   uptime_secs: number | null;
+  boot_secs: number | null;
   disk: { mount: string; free_bytes: number; total_bytes: number } | null;
   memory: { used_bytes: number; total_bytes: number } | null;
 }

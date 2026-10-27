@@ -8,6 +8,7 @@ const flush = () => act(async () => undefined);
 const full: SystemSummary = {
   os: "Windows 11 Home Single Language",
   uptime_secs: 3 * 86400,
+  boot_secs: 48,
   disk: { mount: "C:", free_bytes: 142 * GIB, total_bytes: 237 * GIB },
   memory: { used_bytes: 8 * GIB, total_bytes: 16 * GIB },
 };
@@ -37,8 +38,9 @@ describe("Home", () => {
   });
 
   it("a fact that could not be read is left out, and no summary at all is no empty box", async () => {
-    expect(summaryTiles({ os: null, uptime_secs: null, disk: null, memory: null })).toEqual([]);
-    expect(summaryTiles({ ...full, disk: null, memory: null }).map((x) => x.key)).toEqual(["os", "uptime"]);
+    expect(summaryTiles({ os: null, uptime_secs: null, boot_secs: null, disk: null, memory: null })).toEqual([]);
+    expect(summaryTiles({ ...full, disk: null, memory: null }).map((x) => x.key)).toEqual(["os", "uptime", "boot"]);
+    expect(summaryTiles({ ...full, boot_secs: null }).map((x) => x.key)).not.toContain("boot");
     render(<Home onStart={() => undefined} />);
     await flush();
     expect(screen.queryByRole("list", { name: t("ui.home.summary") })).not.toBeInTheDocument();

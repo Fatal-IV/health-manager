@@ -1,4 +1,4 @@
-import { formatGb, formatUptime, shortOsName } from "./format";
+import { formatBoot, formatGb, formatUptime, shortOsName } from "./format";
 
 const GIB = 1024 ** 3;
 
@@ -20,5 +20,14 @@ describe("format", () => {
     expect(shortOsName("Windows 11 Home Single Language")).toBe("11 Home");
     expect(shortOsName("Microsoft Windows 10 Pro")).toBe("10 Pro");
     expect(shortOsName("Windows 11")).toBe("11");
+  });
+});
+
+describe("formatBoot", () => {
+  it("writes seconds, then minutes and seconds", () => {
+    expect(formatBoot(0.2)).toBe("1 sn");
+    expect(formatBoot(48)).toBe("48 sn");
+    expect(formatBoot(65)).toBe("1 dk 5 sn");
+    expect(formatBoot(180)).toBe("3 dk");
   });
 });

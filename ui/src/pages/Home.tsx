@@ -1,7 +1,7 @@
 import { CheckCircle, Play } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { api, type Category, type ScanMode, type SystemSummary } from "../api";
-import { formatGb, formatUptime, shortOsName } from "../format";
+import { formatBoot, formatGb, formatUptime, shortOsName } from "../format";
 import { t } from "../i18n";
 
 const AREAS: Category[] = ["security", "update", "storage", "performance", "system"];
@@ -21,6 +21,9 @@ export function summaryTiles(s: SystemSummary): Tile[] {
   if (s.os) tiles.push({ key: "os", label: t("ui.home.tile_windows"), value: shortOsName(s.os) });
   if (s.uptime_secs !== null) {
     tiles.push({ key: "uptime", label: t("ui.home.tile_uptime"), value: formatUptime(s.uptime_secs), sub: t("ui.home.tile_uptime_sub") });
+  }
+  if (s.boot_secs !== null && s.boot_secs !== undefined) {
+    tiles.push({ key: "boot", label: t("ui.home.tile_boot"), value: formatBoot(s.boot_secs), sub: t("ui.home.tile_boot_sub") });
   }
   if (s.disk) {
     const used = s.disk.total_bytes - s.disk.free_bytes;

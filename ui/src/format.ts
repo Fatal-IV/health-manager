@@ -15,6 +15,14 @@ export function formatUptime(secs: number): string {
   return `${Math.max(1, Math.floor(secs / 60))} dakika`;
 }
 
+/** A start time: `45 sn`, `1 dk 5 sn`, `3 dk`. */
+export function formatBoot(secs: number): string {
+  if (secs < 60) return `${Math.max(1, Math.round(secs))} sn`;
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  return s === 0 ? `${m} dk` : `${m} dk ${s} sn`;
+}
+
 /** `Windows 11 Home Single Language` -> `11 Home`. */
 export function shortOsName(os: string): string {
   return os.replace(/^Microsoft\s+/i, "").replace(/^Windows\s+/i, "").split(/\s+/).slice(0, 2).join(" ");
