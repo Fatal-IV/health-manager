@@ -202,6 +202,36 @@ mod imp {
         }
     }
 
+    pub fn flush_dns(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        let code = run_exe("ipconfig.exe", &["/flushdns"], log)?;
+        if code == 0 {
+            Ok(Params::new())
+        } else {
+            Err(keys::FAILED)
+        }
+    }
+
+    pub fn renew_ip(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        let release = run_exe("ipconfig.exe", &["/release"], log)?;
+        // Renew even when the release failed: the aim is a working lease.
+        let renew = run_exe("ipconfig.exe", &["/renew"], log)?;
+        if renew == 0 {
+            Ok(Params::new())
+        } else {
+            log.push(format!("release exited {release}, renew exited {renew}"));
+            Err(keys::FAILED)
+        }
+    }
+
+    pub fn reset_winsock(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        let code = run_exe("netsh.exe", &["winsock", "reset"], log)?;
+        if code == 0 {
+            Ok(Params::from([("reboot_required".into(), "true".into())]))
+        } else {
+            Err(keys::FAILED)
+        }
+    }
+
     pub fn run_sfc_dism(log: &mut Vec<String>) -> Result<Params, &'static str> {
         let dism = run_exe(
             "dism.exe",
@@ -245,6 +275,15 @@ mod stub {
         na(l)
     }
     pub fn run_sfc_dism(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn flush_dns(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn renew_ip(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn reset_winsock(l: &mut Vec<String>) -> Result<Params, &'static str> {
         na(l)
     }
 }

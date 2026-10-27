@@ -73,6 +73,9 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
         FixId::EnableDefenderRealtime => crate::repair::enable_defender_realtime(&mut log),
         FixId::EnableFirewall => crate::repair::enable_firewall(&mut log),
         FixId::RunSfcDism => crate::repair::run_sfc_dism(&mut log),
+        FixId::FlushDns => crate::repair::flush_dns(&mut log),
+        FixId::RenewIp => crate::repair::renew_ip(&mut log),
+        FixId::ResetWinsock => crate::repair::reset_winsock(&mut log),
         FixId::ReadBootTime => read_boot_time(&mut log),
     };
     let message = (fix == FixId::ReadBootTime).then_some(keys::BOOT_READ);
@@ -368,6 +371,14 @@ mod tests {
             name: name.into(),
             approved_key,
             disabled: false,
+        }
+    }
+
+    #[test]
+    fn network_fixes_reject_an_argument_before_touching_anything() {
+        for fix in [FixId::FlushDns, FixId::RenewIp, FixId::ResetWinsock] {
+            let e = run(fix, Some("x")).unwrap_err();
+            assert_eq!(e.key, keys::INVALID, "{fix:?}");
         }
     }
 
