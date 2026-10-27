@@ -161,7 +161,34 @@ pub fn download_and_launch() -> Result<(), String> {
             .map_err(|e| e.to_string())?;
         f.write_all(&installer).map_err(|e| e.to_string())?;
     }
-    std::process::Command::new(&path)
+    launch_installer(&path)
+}
+
+/// The installer asks for administrator rights in its manifest, which `Command::spawn`
+/// (CreateProcess) cannot satisfy: it fails with "elevation required". ShellExecuteExW
+/// `runas` shows the Windows permission prompt instead; declining it is an error and the
+/// caller keeps this program open.
+#[cfg(windows)]
+fn launch_installer(path: &std::path::Path) -> Result<(), String> {
+    use windows::core::{w, HSTRING, PCWSTR};
+    use windows::Win32::UI::Shell::{ShellExecuteExW, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW};
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+
+    let file = HSTRING::from(path.as_os_str());
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOASYNC,
+        lpVerb: w!("runas"),
+        lpFile: PCWSTR(file.as_ptr()),
+        nShow: SW_SHOWNORMAL.0,
+        ..Default::default()
+    };
+    unsafe { ShellExecuteExW(&mut info) }.map_err(|e| format!("installer not started: {e}"))
+}
+
+#[cfg(not(windows))]
+fn launch_installer(path: &std::path::Path) -> Result<(), String> {
+    std::process::Command::new(path)
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
