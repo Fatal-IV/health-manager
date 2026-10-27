@@ -26,6 +26,15 @@ describe("Home", () => {
     expect(screen.getByText(t("ui.home.trust"))).toBeInTheDocument();
   });
 
+  it("offers the troubleshooter only when the app can open it", () => {
+    const { rerender } = render(<Home onStart={() => undefined} />);
+    expect(screen.queryByRole("button", { name: new RegExp(t("ui.home.troubleshoot")) })).not.toBeInTheDocument();
+    const open = vi.fn();
+    rerender(<Home onStart={() => undefined} onTroubleshoot={open} />);
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(t("ui.home.troubleshoot")) }));
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the computer summary once it has been read", async () => {
     vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: true, value: full });
     render(<Home onStart={() => undefined} />);

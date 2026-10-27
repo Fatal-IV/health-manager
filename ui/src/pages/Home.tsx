@@ -1,4 +1,4 @@
-import { CheckCircle, Play } from "@phosphor-icons/react";
+import { CheckCircle, Play, Wrench } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { api, type Category, type ScanMode, type SystemSummary } from "../api";
 import { formatBoot, formatGb, formatUptime, shortOsName } from "../format";
@@ -50,10 +50,12 @@ export function summaryTiles(s: SystemSummary): Tile[] {
 
 export function Home({
   onStart,
+  onTroubleshoot,
   lastScan,
   score,
 }: {
   onStart: (mode: ScanMode, categories?: Category[]) => void;
+  onTroubleshoot?: () => void;
   lastScan?: string;
   score?: number | null;
 }) {
@@ -157,6 +159,12 @@ export function Home({
           </div>
         )}
       </section>
+
+      {onTroubleshoot && (
+        <button type="button" className="linklike" onClick={onTroubleshoot}>
+          <Wrench size={15} aria-hidden /> {t("ui.home.troubleshoot")}
+        </button>
+      )}
     </main>
   );
 }

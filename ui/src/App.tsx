@@ -9,6 +9,7 @@ import { Home } from "./pages/Home";
 import { Report } from "./pages/Report";
 import { Results } from "./pages/Results";
 import { Scanning } from "./pages/Scanning";
+import { Troubleshoot } from "./pages/Troubleshoot";
 
 type View =
   | { name: "home" }
@@ -16,7 +17,8 @@ type View =
   | { name: "results"; focus?: Category }
   | { name: "bulk"; items: BulkItem[]; busy: boolean; results: ApplyResult[] | null }
   | { name: "fix"; fix: string; arg?: string; plan: FixPlan; busy: boolean; result: ApplyResult | null }
-  | { name: "report" };
+  | { name: "report" }
+  | { name: "troubleshoot" };
 
 export default function App() {
   const [view, setView] = useState<View>({ name: "home" });
@@ -101,7 +103,7 @@ export default function App() {
           {notice}
         </p>
       )}
-      {view.name === "home" && <Home onStart={startScan} lastScan={report?.scanned_at} score={report && !report.cancelled ? report.score.value : null} />}
+      {view.name === "home" && <Home onStart={startScan} onTroubleshoot={() => setView({ name: "troubleshoot" })} lastScan={report?.scanned_at} score={report && !report.cancelled ? report.score.value : null} />}
       {view.name === "scanning" && (
         <Scanning
           key={view.run}
@@ -147,6 +149,7 @@ export default function App() {
           onDone={() => setView({ name: "results" })}
         />
       )}
+      {view.name === "troubleshoot" && <Troubleshoot onBack={() => setView({ name: "home" })} />}
       {view.name === "report" && report && <Report report={report} applied={applied} onBack={() => setView({ name: "results" })} />}
     </>
   );

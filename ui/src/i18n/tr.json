@@ -262,7 +262,33 @@
       "news_title": "Sürüm {{version}} ile gelenler",
       "news_ok": "Tamam"
     },
+    "troubleshoot": {
+      "title": "Ağ ve internet sorun giderici",
+      "loading": "Bağlantı denetleniyor…",
+      "error": "Sorun giderici başlatılamadı. Biraz sonra tekrar deneyin.",
+      "step": "Adım {{n}} / {{total}}",
+      "apply": "Bu adımı uygula",
+      "skip": "Sonrakine geç",
+      "retry": "Yeniden dene",
+      "back": "Geri dön",
+      "unmeasured": "Bazı testler ölçülemedi; bu yüzden bağlantının durumunu kesin söyleyemiyoruz.",
+      "healthy_title": "Bağlantıda sorun görünmüyor",
+      "healthy_text": "Ağ geçidiniz, ad çözümleme ve internet erişimi yanıt veriyor.",
+      "resolved_title": "Sorun giderildi",
+      "resolved_text": "Son adımdan sonra bağlantı testi başarılı geçti.",
+      "reboot_note": "İşlemin tamamlanması için bilgisayarı yeniden başlatın; ardından bağlantıyı tekrar deneyin.",
+      "exhausted_title": "Sorun giderilemedi",
+      "exhausted_text": "Tüm adımlar denendi ama bağlantı hâlâ yanıt vermiyor. Modem veya yönlendiriciyi yeniden başlatmayı deneyin; sürerse sağlayıcınıza başvurun. Yapılan işlemler raporda görünür.",
+      "declined_title": "Bu adım uygulanmadı",
+      "declined_text": "Adım tamamlanmadı ya da onay verilmedi. Yeniden deneyebilir veya sonraki adıma geçebilirsiniz.",
+      "why": {
+        "flush_dns": "Önce en hafif adım: site adreslerinin eski ya da bozuk kaydı bağlantıyı engelleyebilir.",
+        "renew_ip": "Bilgisayarın ağdan aldığı adres yanlış ya da süresi dolmuş olabilir; yenisini isteriz.",
+        "reset_winsock": "Son çare: Windows'un ağ bileşenleri bozulmuş olabilir. Bu adım sonrası yeniden başlatma gerekir."
+      }
+    },
     "home": {
+      "troubleshoot": "Ağ sorunları için sorun gider",
       "title": "Bilgisayarınızın sağlığını kontrol edelim",
       "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",
       "start": "Taramayı Başlat",
