@@ -7,3 +7,11 @@ graphify-out/
 src-tauri/gen/
 src-tauri/binaries/
 dist/
+
+# signing keys and certificates never belong in the repository (the public key is src-tauri/updater.pub)
+updater.key
+*.key
+*.pem
+*.pfx
+*.p12
+.env
