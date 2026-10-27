@@ -6,6 +6,7 @@ import { t } from "./i18n";
 import { BulkFix, type BulkItem } from "./pages/BulkFix";
 import { FixPreview } from "./pages/FixPreview";
 import { Home } from "./pages/Home";
+import { Overview } from "./pages/Overview";
 import { Report } from "./pages/Report";
 import { Results } from "./pages/Results";
 import { Scanning } from "./pages/Scanning";
@@ -14,12 +15,13 @@ import { TroubleshootPicker } from "./pages/TroubleshootPicker";
 
 type View =
   | { name: "home" }
-  | { name: "scanning"; mode: ScanMode; run: number; categories?: Category[] }
+  | { name: "scanning"; mode: ScanMode; run: number; categories?: Category[]; then?: "overview" }
   | { name: "results"; focus?: Category }
   | { name: "bulk"; items: BulkItem[]; busy: boolean; results: ApplyResult[] | null }
   | { name: "fix"; fix: string; arg?: string; plan: FixPlan; busy: boolean; result: ApplyResult | null }
   | { name: "report" }
-  | { name: "troubleshoot"; id?: TroubleshooterId };
+  | { name: "troubleshoot"; id?: TroubleshooterId; from?: "overview" }
+  | { name: "overview" };
 
 export default function App() {
   const [view, setView] = useState<View>({ name: "home" });
@@ -28,10 +30,10 @@ export default function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [runs, setRuns] = useState(0);
 
-  const startScan = (mode: ScanMode, categories?: Category[]) => {
+  const startScan = (mode: ScanMode, categories?: Category[], then?: "overview") => {
     setNotice(null);
     setRuns((n) => n + 1);
-    setView({ name: "scanning", mode, run: runs + 1, categories });
+    setView({ name: "scanning", mode, run: runs + 1, categories, then });
   };
 
   const openBulk = async (issues: Issue[]) => {
@@ -104,7 +106,7 @@ export default function App() {
           {notice}
         </p>
       )}
-      {view.name === "home" && <Home onStart={startScan} onTroubleshoot={() => setView({ name: "troubleshoot" })} lastScan={report?.scanned_at} score={report && !report.cancelled ? report.score.value : null} />}
+      {view.name === "home" && <Home onStart={startScan} onTroubleshoot={() => setView({ name: "troubleshoot" })} onBoth={() => startScan("quick", undefined, "overview")} lastScan={report?.scanned_at} score={report && !report.cancelled ? report.score.value : null} />}
       {view.name === "scanning" && (
         <Scanning
           key={view.run}
@@ -114,7 +116,7 @@ export default function App() {
             setReport(r);
             // A full scan starts a new session; a single-area re-scan keeps the applied fixes.
             if (!view.categories) setApplied([]);
-            setView({ name: "results", focus: view.categories?.[0] });
+            setView(view.then === "overview" ? { name: "overview" } : { name: "results", focus: view.categories?.[0] });
           }}
           onCancel={() => setView({ name: "home" })}
         />
@@ -153,7 +155,17 @@ export default function App() {
       {view.name === "troubleshoot" && !view.id && (
         <TroubleshootPicker onPick={(id) => setView({ name: "troubleshoot", id })} onBack={() => setView({ name: "home" })} />
       )}
-      {view.name === "troubleshoot" && view.id && <Troubleshoot id={view.id} onBack={() => setView({ name: "troubleshoot" })} />}
+      {view.name === "troubleshoot" && view.id && (
+        <Troubleshoot id={view.id} onBack={() => setView(view.from ? { name: view.from } : { name: "troubleshoot" })} />
+      )}
+      {view.name === "overview" && report && (
+        <Overview
+          score={report.cancelled ? null : report.score.value}
+          onOpen={(id) => setView({ name: "troubleshoot", id, from: "overview" })}
+          onResults={() => setView({ name: "results" })}
+          onBack={() => setView({ name: "home" })}
+        />
+      )}
       {view.name === "report" && report && <Report report={report} applied={applied} onBack={() => setView({ name: "results" })} />}
     </>
   );

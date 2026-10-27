@@ -277,6 +277,8 @@ pub struct TroubleshootState {
     pub unmeasured: bool,
     /// Keys of readings no step can fix (high memory or processor use).
     pub hints: Vec<&'static str>,
+    /// Whether this troubleshooter has a quick test (system files has none).
+    pub tested: bool,
 }
 
 pub fn troubleshooter(id: &str) -> Result<health_core::troubleshoot::Troubleshooter, String> {
@@ -306,6 +308,7 @@ pub fn troubleshoot_response(
         reboot: false,
         unmeasured: false,
         hints: Vec::new(),
+        tested: !t.diagnose.is_empty(),
     };
     match s {
         State::Healthy => {}
@@ -375,6 +378,14 @@ mod tests {
     use std::time::UNIX_EPOCH;
 
     const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn troubleshoot_response_says_whether_there_is_a_quick_test() {
+        for (id, tested) in [("network", true), ("windows_update", true), ("slowness", true), ("system_files", false)] {
+            let t = troubleshooter(id).unwrap();
+            assert_eq!(troubleshoot_start_response(&t, &FakeProbe::default()).tested, tested, "{id}");
+        }
+    }
 
     #[test]
     fn troubleshoot_start_reports_hints_and_rejects_unknown_ids() {

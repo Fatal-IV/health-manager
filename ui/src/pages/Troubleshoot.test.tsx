@@ -12,6 +12,7 @@ const st = (over: Partial<TroubleshootState> = {}): TroubleshootState => ({
   reboot: false,
   unmeasured: false,
   hints: [],
+  tested: true,
   ...over,
 });
 const ok = <T,>(value: T) => ({ ok: true as const, value });

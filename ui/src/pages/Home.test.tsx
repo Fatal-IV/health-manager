@@ -35,6 +35,15 @@ describe("Home", () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  it("offers the combined check only when the app can run it", () => {
+    const { rerender } = render(<Home onStart={() => undefined} />);
+    expect(screen.queryByRole("button", { name: t("ui.home.both") })).not.toBeInTheDocument();
+    const both = vi.fn();
+    rerender(<Home onStart={() => undefined} onBoth={both} />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.home.both") }));
+    expect(both).toHaveBeenCalledTimes(1);
+  });
+
   it("shows the computer summary once it has been read", async () => {
     vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: true, value: full });
     render(<Home onStart={() => undefined} />);

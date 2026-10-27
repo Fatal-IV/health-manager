@@ -262,6 +262,19 @@
       "news_title": "Sürüm {{version}} ile gelenler",
       "news_ok": "Tamam"
     },
+    "overview": {
+      "title": "Genel durum",
+      "score_line": "Sağlık puanı: {{score}} / 100",
+      "no_score": "Tarama tamamlanmadı, puan yok.",
+      "status_loading": "Denetleniyor…",
+      "status_healthy": "Sorun görünmüyor",
+      "status_problem": "Sorun var",
+      "status_unmeasured": "Ölçülemedi",
+      "status_notest": "Hızlı testi yok",
+      "fix": "Gider",
+      "open": "Aç",
+      "see_results": "Tarama sonuçlarını gör"
+    },
     "troubleshoot": {
       "picker_title": "Hangi sorunu gidermek istersiniz?",
       "titles": {
@@ -331,6 +344,8 @@
     },
     "home": {
       "troubleshoot": "Sorun gider",
+      "both": "Bir sorun sezdim: ikisini birden yap",
+      "audit_title": "Sağlık ve performans denetimi",
       "title": "Bilgisayarınızın sağlığını kontrol edelim",
       "subtitle": "Tek tıkla taranır. Sorunları sade bir dille anlatırız; siz onaylamadan hiçbir şeyi değiştirmeyiz.",
       "start": "Taramayı Başlat",

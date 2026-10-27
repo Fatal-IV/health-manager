@@ -106,6 +106,8 @@ export interface TroubleshootState {
   unmeasured: boolean;
   /** Keys of readings no step can fix (`high_ram`, `high_cpu`). */
   hints: string[];
+  /** False when the troubleshooter has no quick test and always offers its repair. */
+  tested: boolean;
 }
 
 export const api = {

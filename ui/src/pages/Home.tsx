@@ -1,4 +1,4 @@
-import { CheckCircle, Play, Wrench } from "@phosphor-icons/react";
+import { CheckCircle, Play, Stethoscope, Wrench } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { api, type Category, type ScanMode, type SystemSummary } from "../api";
 import { formatBoot, formatGb, formatUptime, shortOsName } from "../format";
@@ -51,11 +51,13 @@ export function summaryTiles(s: SystemSummary): Tile[] {
 export function Home({
   onStart,
   onTroubleshoot,
+  onBoth,
   lastScan,
   score,
 }: {
   onStart: (mode: ScanMode, categories?: Category[]) => void;
   onTroubleshoot?: () => void;
+  onBoth?: () => void;
   lastScan?: string;
   score?: number | null;
 }) {
@@ -123,6 +125,7 @@ export function Home({
             />
           </svg>
           <div className="start-text">
+            <p className="eyebrow">{t("ui.home.audit_title")}</p>
             <h2>{t("ui.home.ready")}</h2>
             <p>
               {t("ui.home.areas_count", { count: areas.length })} ·{" "}
@@ -160,10 +163,19 @@ export function Home({
         )}
       </section>
 
-      {onTroubleshoot && (
-        <button type="button" className="linklike" onClick={onTroubleshoot}>
-          <Wrench size={15} aria-hidden /> {t("ui.home.troubleshoot")}
-        </button>
+      {(onTroubleshoot || onBoth) && (
+        <div className="row">
+          {onTroubleshoot && (
+            <button type="button" onClick={onTroubleshoot}>
+              <Wrench size={17} aria-hidden /> {t("ui.home.troubleshoot")}
+            </button>
+          )}
+          {onBoth && (
+            <button type="button" className="primary" onClick={onBoth}>
+              <Stethoscope size={17} aria-hidden /> {t("ui.home.both")}
+            </button>
+          )}
+        </div>
       )}
     </main>
   );

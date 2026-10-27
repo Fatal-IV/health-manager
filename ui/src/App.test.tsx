@@ -20,6 +20,7 @@ vi.mock("./api", async (orig) => {
       getSystemSummary: vi.fn(),
       installUpdate: vi.fn(),
       getReleaseNotes: vi.fn(),
+      troubleshootStart: vi.fn(),
     },
   };
 });
@@ -36,6 +37,22 @@ describe("App", () => {
     vi.mocked(api.checkUpdate).mockResolvedValue({ ok: true, value: null });
     vi.mocked(api.getReleaseNotes).mockResolvedValue({ ok: true, value: null });
     vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: false, error: "none" });
+  });
+
+  it("the combined button scans, then shows the overview and can open a troubleshooter's result list", async () => {
+    vi.mocked(api.startScan).mockResolvedValue({ ok: true, value: report() });
+    vi.mocked(api.troubleshootStart).mockResolvedValue({
+      ok: true,
+      value: { state: "healthy", step: null, total: 1, fix: null, reboot: false, unmeasured: false, hints: [], tested: true },
+    });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.home.both") }));
+    await flush();
+    expect(await screen.findByText(t("ui.overview.title"))).toBeInTheDocument();
+    expect(api.startScan).toHaveBeenCalledWith("quick");
+    expect(api.troubleshootStart).toHaveBeenCalledTimes(4);
+    fireEvent.click(screen.getByRole("button", { name: t("ui.overview.see_results") }));
+    expect(await screen.findByText(t("ui.results.title"))).toBeInTheDocument();
   });
 
   it("renders app title and the start screen", () => {
