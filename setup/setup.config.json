@@ -23,7 +23,7 @@
     "close": "Kapat",
     "tagline": "Bilgisayarınızın sağlığını tek tıkla kontrol eder",
     "desktop_shortcut": "Masaüstüne kısayol ekle",
-    "admin_note": "Windows bir kez izin isteyecek. Program, bilgisayarın Program Files klasörüne kurulur.",
+    "admin_note": "Windows bir kez izin isteyecek.",
     "no_payload": "Bu kurucu uygulama dosyalarını içermiyor. Lütfen resmi sürümü indirin.",
     "log_prefix": "Ayrıntılar",
     "install": {
@@ -43,7 +43,7 @@
       "terms": "Ayarlarınız ve verileriniz korunur.",
       "working": "Güncelleniyor…",
       "done_title": "Güncellendi",
-      "done_text": "Sürüm {{version}} kuruldu.",
+      "done_text": "Artık {{version}} sürümünü kullanıyorsunuz.",
       "done_button": "{{name}}'i aç"
     },
     "reinstall": {

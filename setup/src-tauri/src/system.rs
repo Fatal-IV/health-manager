@@ -58,10 +58,13 @@ fn uninstall_key(p: &Product) -> String {
     format!(r"Software\Microsoft\Windows\CurrentVersion\Uninstall\{}", p.slug)
 }
 
-/// The machine-wide install's version, if there is one.
+/// The installed version: the machine-wide install, else the per-user one older installers
+/// made (0.3.0-0.3.2), so that setting those up again reads as an update, not a first install.
 pub fn installed_version(p: &Product) -> Option<String> {
-    let key = RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(uninstall_key(p)).ok()?;
-    key.get_value::<String, _>("DisplayVersion").ok()
+    [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER].into_iter().find_map(|hive| {
+        let key = RegKey::predef(hive).open_subkey(uninstall_key(p)).ok()?;
+        key.get_value::<String, _>("DisplayVersion").ok()
+    })
 }
 
 pub fn install_dir(p: &Product) -> Result<PathBuf, SetupError> {
