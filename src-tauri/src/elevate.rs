@@ -7,7 +7,7 @@
 //! helper's JSON is treated as untrusted (size limit, key pattern, truncation).
 #![allow(dead_code)] // some helpers are used by tests and the real launcher only
 
-use health_core::fixes::{fix_plan, validate_arg, FixId};
+use health_core::fixes::{fix_plan, op_count, validate_arg, FixId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -229,8 +229,60 @@ fn checked_key(k: &str) -> String {
     }
 }
 
-/// Launch logic against any `Launcher` (the real one is Windows-only).
-pub fn apply_with(l: &dyn Launcher, fix: FixId, arg: Option<&str>) -> FixOutcome {
+/// `<result path>.progress`: the file the helper appends `{"op":n}` lines to.
+pub fn progress_path(result: &Path) -> PathBuf {
+    let mut p = result.as_os_str().to_owned();
+    p.push(".progress");
+    PathBuf::from(p)
+}
+
+const MAX_PROGRESS_BYTES: usize = 4096;
+const PROGRESS_POLL: std::time::Duration = std::time::Duration::from_millis(250);
+
+#[derive(Deserialize)]
+struct ProgressLine {
+    op: u32,
+}
+
+/// The highest finished operation named in `text`, never below `last` and never
+/// above `total`. The file is written by an elevated process but lives in a
+/// user-writable folder, so it is untrusted: only the first 4 KiB are looked at
+/// and any line that is not exactly `{"op":<number>}` is skipped.
+pub fn parse_progress(text: &str, total: u32, last: u32) -> u32 {
+    let head = match text.char_indices().nth(MAX_PROGRESS_BYTES) {
+        Some((i, _)) => &text[..i],
+        None => text,
+    };
+    head.lines()
+        .filter_map(|l| serde_json::from_str::<ProgressLine>(l).ok())
+        .map(|p| p.op)
+        .filter(|op| *op <= total)
+        .fold(last, u32::max)
+}
+
+fn read_progress(path: &Path, total: u32, last: u32) -> u32 {
+    let Ok(f) = std::fs::File::open(path) else {
+        return last;
+    };
+    let mut buf = Vec::new();
+    if f.take(MAX_PROGRESS_BYTES as u64).read_to_end(&mut buf).is_err() {
+        return last;
+    }
+    match String::from_utf8(buf) {
+        Ok(text) => parse_progress(&text, total, last),
+        Err(_) => last,
+    }
+}
+
+/// Launch logic against any `Launcher` (the real one is Windows-only). With
+/// `on_progress`, the helper's progress file is created first, read while the
+/// helper runs and removed afterwards.
+pub fn apply_with(
+    l: &dyn Launcher,
+    fix: FixId,
+    arg: Option<&str>,
+    on_progress: Option<&(dyn Fn(u32) + Sync)>,
+) -> FixOutcome {
     if let Err(e) = validate_arg(fix, arg) {
         return failed(K_INVALID_ARG, e.to_string());
     }
@@ -244,7 +296,44 @@ pub fn apply_with(l: &dyn Launcher, fix: FixId, arg: Option<&str>) -> FixOutcome
         arg: arg.map(String::from),
         result: result.clone(),
     };
-    let launched = l.run_helper(&args, needs_admin);
+    let progress = on_progress.and_then(|cb| {
+        let path = progress_path(&result);
+        std::fs::OpenOptions::new().write(true).create_new(true).open(&path).ok()?;
+        Some((path, cb))
+    });
+    let launched = match &progress {
+        None => l.run_helper(&args, needs_admin),
+        Some((path, cb)) => {
+            use std::sync::atomic::{AtomicBool, AtomicU32, Ordering::SeqCst};
+            let total = op_count(fix) as u32;
+            let stop = AtomicBool::new(false);
+            let last = AtomicU32::new(0);
+            let poll = || {
+                let before = last.load(SeqCst);
+                let now = read_progress(path, total, before);
+                if now > before {
+                    last.store(now, SeqCst);
+                    cb(now);
+                }
+            };
+            std::thread::scope(|s| {
+                let reader = s.spawn(|| {
+                    while !stop.load(SeqCst) {
+                        poll();
+                        std::thread::sleep(PROGRESS_POLL);
+                    }
+                });
+                let r = l.run_helper(&args, needs_admin);
+                stop.store(true, SeqCst);
+                let _ = reader.join();
+                poll();
+                r
+            })
+        }
+    };
+    if let Some((path, _)) = &progress {
+        let _ = std::fs::remove_file(path);
+    }
     let outcome = match launched {
         Err(LaunchError::Cancelled) => FixOutcome::Declined,
         Err(LaunchError::Other(e)) => failed(K_FAILED, e),
@@ -267,14 +356,14 @@ pub fn apply_with(l: &dyn Launcher, fix: FixId, arg: Option<&str>) -> FixOutcome
     outcome
 }
 
-pub fn apply_fix(fix: FixId, arg: Option<&str>) -> FixOutcome {
+pub fn apply_fix(fix: FixId, arg: Option<&str>, on_progress: Option<&(dyn Fn(u32) + Sync)>) -> FixOutcome {
     // Validate before touching the file system or the launcher.
     if let Err(e) = validate_arg(fix, arg) {
         return failed(K_INVALID_ARG, e.to_string());
     }
     let helper = std::env::current_exe().ok().and_then(|e| locate_helper(&e));
     match helper {
-        Some(h) => apply_with(&real::RealLauncher { helper: h }, fix, arg),
+        Some(h) => apply_with(&real::RealLauncher { helper: h }, fix, arg, on_progress),
         None => failed(K_HELPER_MISSING, "fix-helper.exe not found next to the application"),
     }
 }

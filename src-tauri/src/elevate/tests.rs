@@ -5,6 +5,8 @@ struct Fake {
     calls: RefCell<Vec<(HelperArgs, bool)>>,
     reply: Result<LaunchStatus, LaunchError>,
     write: Option<String>,
+    progress: Option<Vec<u8>>,
+    saw_progress_file: std::cell::Cell<bool>,
 }
 impl Fake {
     fn new(reply: Result<LaunchStatus, LaunchError>, write: Option<&str>) -> Self {
@@ -12,12 +14,23 @@ impl Fake {
             calls: RefCell::new(vec![]),
             reply,
             write: write.map(String::from),
+            progress: None,
+            saw_progress_file: std::cell::Cell::new(false),
         }
+    }
+    fn with_progress(mut self, bytes: &[u8]) -> Self {
+        self.progress = Some(bytes.to_vec());
+        self
     }
 }
 impl Launcher for Fake {
     fn run_helper(&self, args: &HelperArgs, elevate: bool) -> Result<LaunchStatus, LaunchError> {
         self.calls.borrow_mut().push((args.clone(), elevate));
+        let pp = progress_path(&args.result);
+        self.saw_progress_file.set(pp.exists());
+        if let Some(b) = &self.progress {
+            std::fs::write(&pp, b).unwrap();
+        }
         if let Some(w) = &self.write {
             std::fs::write(&args.result, w).unwrap();
         }
@@ -39,12 +52,12 @@ fn failed_key(o: &FixOutcome) -> &str {
 #[test]
 fn uac_cancelled_maps_to_declined() {
     let f = Fake::new(Err(LaunchError::Cancelled), None);
-    assert_eq!(apply_with(&f, FixId::EnableFirewall, None), FixOutcome::Declined);
+    assert_eq!(apply_with(&f, FixId::EnableFirewall, None, None), FixOutcome::Declined);
 }
 #[test]
 fn non_admin_fix_does_not_request_elevation() {
     let f = Fake::new(exited(0), Some(OK_JSON));
-    let o = apply_with(&f, FixId::CleanTemp, None);
+    let o = apply_with(&f, FixId::CleanTemp, None, None);
     assert!(matches!(o, FixOutcome::Applied { .. }), "{o:?}");
     assert!(!f.calls.borrow()[0].1);
 }
@@ -54,39 +67,39 @@ fn admin_fix_requests_elevation() {
         exited(3),
         Some(r#"{"ok":false,"message":"fix.result.not_available","log":""}"#),
     );
-    let o = apply_with(&f, FixId::EnableFirewall, None);
+    let o = apply_with(&f, FixId::EnableFirewall, None, None);
     assert!(f.calls.borrow()[0].1);
     assert_eq!(failed_key(&o), "fix.result.not_available");
 }
 #[test]
 fn missing_result_file_maps_to_failed() {
     let f = Fake::new(exited(0), None);
-    assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None)), "fix.result.failed");
+    assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None, None)), "fix.result.failed");
 }
 #[test]
 fn helper_exit_2_maps_to_failed() {
     let f = Fake::new(exited(2), None);
     assert_eq!(
-        failed_key(&apply_with(&f, FixId::CleanTemp, None)),
+        failed_key(&apply_with(&f, FixId::CleanTemp, None, None)),
         "fix.result.invalid_argument"
     );
 }
 #[test]
 fn invalid_arg_launches_nothing() {
     let f = Fake::new(exited(0), Some(OK_JSON));
-    let o = apply_with(&f, FixId::DisableStartupItem, None);
+    let o = apply_with(&f, FixId::DisableStartupItem, None, None);
     assert_eq!(failed_key(&o), "fix.result.invalid_argument");
     assert!(f.calls.borrow().is_empty());
 }
 #[test]
 fn timeout_maps_to_failed_timeout() {
     let f = Fake::new(Ok(LaunchStatus::TimedOut), None);
-    assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None)), "fix.result.timeout");
+    assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None, None)), "fix.result.timeout");
 }
 #[test]
 fn launch_error_maps_to_failed() {
     let f = Fake::new(Err(LaunchError::Other("boom".into())), None);
-    let o = apply_with(&f, FixId::CleanTemp, None);
+    let o = apply_with(&f, FixId::CleanTemp, None, None);
     assert_eq!(failed_key(&o), "fix.result.failed");
 }
 #[test]
@@ -101,14 +114,14 @@ fn hostile_message_keys_are_replaced() {
     ] {
         let json = serde_json::json!({"ok":false,"message":bad,"log":""}).to_string();
         let f = Fake::new(exited(3), Some(&json));
-        assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None)), "fix.result.failed", "{bad:?}");
+        assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None, None)), "fix.result.failed", "{bad:?}");
     }
     let f = Fake::new(
         exited(3),
         Some(r#"{"ok":false,"message":"fix.result.item_not_found","log":""}"#),
     );
     assert_eq!(
-        failed_key(&apply_with(&f, FixId::CleanTemp, None)),
+        failed_key(&apply_with(&f, FixId::CleanTemp, None, None)),
         "fix.result.item_not_found"
     );
 }
@@ -116,7 +129,7 @@ fn hostile_message_keys_are_replaced() {
 fn exit_0_with_ok_false_is_failed() {
     let f = Fake::new(exited(0), Some(r#"{"ok":false,"message":"fix.result.ok","log":""}"#));
     assert!(matches!(
-        apply_with(&f, FixId::CleanTemp, None),
+        apply_with(&f, FixId::CleanTemp, None, None),
         FixOutcome::Failed { .. }
     ));
 }
@@ -128,7 +141,7 @@ fn oversized_and_garbled_results_fail() {
     );
     for body in [big, "not json".to_string(), String::new()] {
         let f = Fake::new(exited(0), Some(&body));
-        assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None)), "fix.result.failed");
+        assert_eq!(failed_key(&apply_with(&f, FixId::CleanTemp, None, None)), "fix.result.failed");
         assert!(!f.calls.borrow()[0].0.result.exists());
     }
 }
@@ -141,7 +154,7 @@ fn non_utf8_result_is_rejected() {
             Ok(LaunchStatus::Exited(0))
         }
     }
-    assert_eq!(failed_key(&apply_with(&Bin, FixId::CleanTemp, None)), "fix.result.failed");
+    assert_eq!(failed_key(&apply_with(&Bin, FixId::CleanTemp, None, None)), "fix.result.failed");
 }
 #[test]
 fn params_are_truncated() {
@@ -149,7 +162,7 @@ fn params_are_truncated() {
     let json =
         serde_json::json!({"ok":true,"message":"fix.result.ok","params":{"k":long},"log":""}).to_string();
     let f = Fake::new(exited(0), Some(&json));
-    match apply_with(&f, FixId::CleanTemp, None) {
+    match apply_with(&f, FixId::CleanTemp, None, None) {
         FixOutcome::Applied { params, .. } => assert!(params["k"].chars().count() <= MAX_PARAM_LEN),
         o => panic!("{o:?}"),
     }
@@ -157,7 +170,7 @@ fn params_are_truncated() {
 #[test]
 fn result_file_deleted_after_reading() {
     let f = Fake::new(exited(0), Some(OK_JSON));
-    match apply_with(&f, FixId::CleanTemp, None) {
+    match apply_with(&f, FixId::CleanTemp, None, None) {
         FixOutcome::Applied { message, params } => {
             assert_eq!(message, "fix.result.ok");
             assert_eq!(params["n"], "3");
@@ -304,4 +317,82 @@ fn every_produced_key_exists_in_tr_json() {
         assert!(tr["fix"]["result"][leaf].is_string(), "missing {k}");
         assert!(is_valid_key(k));
     }
+}
+
+#[test]
+fn parse_progress_takes_the_highest_valid_op() {
+    assert_eq!(parse_progress("{\"op\":1}
+{\"op\":3}
+", 3, 0), 3);
+    assert_eq!(parse_progress("{\"op\":1}
+", 3, 0), 1);
+}
+#[test]
+fn parse_progress_ignores_bad_input() {
+    for bad in ["", "garbage
+", "{\"op\":99}
+", "{\"op\":-1}
+", "{\"op\":1.5}
+", "{\"op\":1", "{\"x\":1}
+"] {
+        assert_eq!(parse_progress(bad, 3, 1), 1, "{bad:?}");
+    }
+    // A value that goes backwards never lowers `last`.
+    assert_eq!(parse_progress("{\"op\":1}
+", 3, 2), 2);
+    // Only the first 4 KiB are looked at.
+    let late = format!("{}{{\"op\":3}}
+", "x".repeat(5000));
+    assert_eq!(parse_progress(&late, 3, 0), 0);
+}
+#[test]
+fn read_progress_ignores_non_utf8_and_missing_files() {
+    let dir = std::env::temp_dir().join(format!("elevate-progress-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let f = dir.join("p.progress");
+    std::fs::write(&f, [0xff, 0xfe, b'{', b'"']).unwrap();
+    assert_eq!(read_progress(&f, 3, 1), 1);
+    assert_eq!(read_progress(&dir.join("missing.progress"), 3, 1), 1);
+}
+#[test]
+fn apply_with_reports_progress_and_still_returns_the_result() {
+    let f = Fake::new(exited(0), Some(OK_JSON)).with_progress(b"{\"op\":1}
+{\"op\":2}
+");
+    let seen = std::sync::Mutex::new(Vec::<u32>::new());
+    let cb = |d: u32| seen.lock().unwrap().push(d);
+    let o = apply_with(&f, FixId::RenewIp, None, Some(&cb));
+    assert!(matches!(o, FixOutcome::Applied { .. }), "{o:?}");
+    let seen = seen.lock().unwrap();
+    assert_eq!(seen.last(), Some(&2));
+    assert!(seen.windows(2).all(|w| w[0] < w[1]), "{seen:?}");
+    assert!(f.saw_progress_file.get(), "the app creates the file before the helper starts");
+    let path = progress_path(&f.calls.borrow()[0].0.result);
+    assert!(!path.exists(), "progress file is removed");
+}
+#[test]
+fn apply_with_ignores_hostile_progress_file() {
+    let junk = vec![b'x'; 8192];
+    let f = Fake::new(exited(0), Some(OK_JSON)).with_progress(&junk);
+    let calls = std::sync::atomic::AtomicU32::new(0);
+    let cb = |_: u32| {
+        calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    };
+    let o = apply_with(&f, FixId::RenewIp, None, Some(&cb));
+    assert!(matches!(o, FixOutcome::Applied { .. }), "{o:?}");
+    assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+}
+#[test]
+fn timeout_still_stops_the_reader_and_removes_the_file() {
+    let f = Fake::new(Ok(LaunchStatus::TimedOut), None).with_progress(b"{\"op\":1}
+");
+    let cb = |_: u32| {};
+    assert_eq!(failed_key(&apply_with(&f, FixId::RenewIp, None, Some(&cb))), "fix.result.timeout");
+    assert!(!progress_path(&f.calls.borrow()[0].0.result).exists());
+}
+#[test]
+fn no_progress_file_without_a_callback() {
+    let f = Fake::new(exited(0), Some(OK_JSON));
+    let _ = apply_with(&f, FixId::RenewIp, None, None);
+    assert!(!f.saw_progress_file.get());
 }

@@ -242,17 +242,36 @@ pub fn get_fix_plan(fix: String, arg: Option<String>) -> Result<FixPlan, String>
     plan_for(&fix, arg.as_deref())
 }
 
+#[derive(serde::Serialize, Clone)]
+pub struct FixProgress {
+    pub done: u32,
+    pub total: u32,
+}
+
 #[tauri::command]
 pub async fn apply_fix_cmd(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     fix: String,
     arg: Option<String>,
+    with_progress: bool,
 ) -> Result<ApplyResult, String> {
     let session = state.session.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let probe = make_probe();
+        let total = fix
+            .parse::<health_core::fixes::FixId>()
+            .map(|f| health_core::fixes::op_count(f) as u32)
+            .unwrap_or(0);
+        let emit = move |done: u32| {
+            use tauri::Emitter;
+            let _ = app.emit("fix-progress", FixProgress { done, total });
+        };
         apply_and_verify(
-            &|f, a| crate::elevate::apply_fix(f, a),
+            &|f, a| {
+                let cb: Option<&(dyn Fn(u32) + Sync)> = with_progress.then_some(&emit);
+                crate::elevate::apply_fix(f, a, cb)
+            },
             &all_checks(),
             &probe,
             &session,
@@ -263,6 +282,16 @@ pub async fn apply_fix_cmd(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub fn get_settings() -> crate::settings::Settings {
+    crate::settings::load()
+}
+
+#[tauri::command]
+pub fn set_settings(progress_mode: String) -> Result<crate::settings::Settings, String> {
+    crate::settings::save(&progress_mode)
 }
 
 /// Troubleshooter state for the UI. `fix` names the proposed step's fix; the

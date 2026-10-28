@@ -2,6 +2,7 @@
 
 mod commands;
 mod elevate;
+mod settings;
 mod update;
 
 #[tauri::command]
@@ -22,6 +23,8 @@ fn main() {
             commands::get_fix_plan,
             commands::apply_fix_cmd,
             commands::get_session,
+            commands::get_settings,
+            commands::set_settings,
             commands::troubleshoot_start,
             commands::troubleshoot_after_fix,
             commands::troubleshoot_skip,
