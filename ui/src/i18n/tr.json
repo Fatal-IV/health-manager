@@ -217,6 +217,21 @@
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
       }
     },
+    "restart_spooler": {
+      "summary": "Yazdırma servisini yeniden başlat",
+      "change": {
+        "1": "Windows yazdırma servisi (Yazdırma Biriktiricisi) durdurulup yeniden başlatılacak. Sıradaki belgeler korunur.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    },
+    "clear_print_queue": {
+      "summary": "Yazdırma kuyruğunu temizle",
+      "change": {
+        "1": "Yazdırılmayı bekleyen tüm belgeler kuyruktan silinecek; bunları yeniden yazdırmanız gerekir.",
+        "2": "Yazdırma servisi durdurulup temizlikten sonra yeniden başlatılacak.",
+        "3": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    },
     "restart_audio_services": {
       "summary": "Ses servislerini yeniden başlat",
       "change": {
@@ -294,14 +309,16 @@
         "windows_update": "Windows Update",
         "system_files": "Sistem dosyaları",
         "slowness": "Yavaşlık",
-        "audio": "Ses"
+        "audio": "Ses",
+        "printer": "Yazıcı"
       },
       "descriptions": {
         "network": "İnternet yok ya da sayfalar açılmıyor",
         "windows_update": "Güncellemeler inmiyor ya da takılıyor",
         "system_files": "Bozuk ya da eksik Windows dosyaları",
         "slowness": "Bilgisayar yavaş ya da disk dolu",
-        "audio": "Ses gelmiyor ya da kesiliyor"
+        "audio": "Ses gelmiyor ya da kesiliyor",
+        "printer": "Yazıcı yazdırmıyor ya da belge kuyrukta takılı"
       },
       "loading": "Denetleniyor…",
       "error": "Sorun giderici başlatılamadı. Biraz sonra tekrar deneyin.",
@@ -348,6 +365,11 @@
           "healthy": "Windows ses servisleri çalışıyor. Sorun aygıtta ya da ses ayarında olabilir: hoparlör ya da kulaklığın bağlı ve sesin açık olduğunu denetleyin.",
           "resolved": "Ses servisleri yeniden başlatıldı ve çalışıyor. Sesi tekrar deneyin.",
           "exhausted": "Ses servisleri yeniden başlatılamadı. Bilgisayarı yeniden başlatıp tekrar deneyin; sürerse ses aygıtı sürücüsünü denetleyin."
+        },
+        "printer": {
+          "healthy": "Yazdırma servisi çalışıyor. Sorun yazıcıda olabilir: açık, kablosu ya da ağı bağlı ve kâğıdı ya da mürekkebi var mı denetleyin.",
+          "resolved": "Yazdırma servisi çalışıyor. Bir deneme sayfası yazdırın.",
+          "exhausted": "Yazdırma servisi çalıştırılamadı. Bilgisayarı yeniden başlatıp tekrar deneyin; sürerse yazıcı sürücüsünü yeniden yükleyin."
         }
       },
       "why": {
@@ -359,6 +381,8 @@
         "run_sfc_dism": "Bozuk ya da eksik Windows dosyaları birçok tuhaf sorunun sebebi olabilir; Windows'un kendi araçlarıyla taranıp onarılır.",
         "clean_temp": "Önce en hafif adım: geçici dosyalar yer kaplar ve sistemi yavaşlatabilir.",
         "empty_recycle_bin": "Geri dönüşüm kutusu disk alanı tutuyor olabilir.",
+        "restart_spooler": "Önce en hafif adım: yazdırma servisi takılmış ya da durmuş olabilir; yeniden başlatmak belgeleri silmez.",
+        "clear_print_queue": "Kuyrukta takılı kalmış bir belge diğerlerini engelliyor olabilir; bekleyen belgeler silinir.",
         "restart_audio_services": "Ses servisleri takılmış ya da durmuş olabilir; yeniden başlatmak çoğu zaman sesi geri getirir."
       }
     },

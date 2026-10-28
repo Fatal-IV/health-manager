@@ -58,6 +58,16 @@ fn restart_with(
     Ok(())
 }
 
+/// A queued print job: `<id>.SPL` (data) or `<id>.SHD` (shadow). Bare
+/// extension names (`.SPL`), no extension and anything longer (`x.spl.exe`) are not.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn is_spool_file(name: &std::ffi::OsStr) -> bool {
+    std::path::Path::new(name)
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("spl") || e.eq_ignore_ascii_case("shd"))
+}
+
 #[cfg(windows)]
 mod imp {
     use super::*;
@@ -266,6 +276,46 @@ mod imp {
         restart_services(&["Audiosrv", "AudioEndpointBuilder"], log)
     }
 
+    pub fn restart_spooler(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        restart_services(&["Spooler"], log)
+    }
+
+    /// Stops the spooler, deletes only `.SPL`/`.SHD` files directly inside
+    /// `spool\PRINTERS` (no folders, no links), and always starts it again.
+    pub fn clear_print_queue(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        use crate::winfs::{delete_verified, is_reparse};
+        let _ = run_exe("net.exe", &["stop", "Spooler", "/y"], log);
+        let dir = system32_dir().join("spool").join("PRINTERS");
+        let cleaned = match final_path(&dir) {
+            Ok(root) => {
+                let mut deleted = 0u32;
+                for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                    let path = entry.path();
+                    let Ok(md) = std::fs::symlink_metadata(&path) else {
+                        continue;
+                    };
+                    if is_reparse(&md) || !md.is_file() || !is_spool_file(&entry.file_name()) {
+                        continue;
+                    }
+                    if delete_verified(&path, &root).is_ok() {
+                        deleted += 1;
+                    }
+                }
+                log.push(format!("deleted {deleted} queued print files"));
+                Ok(Params::from([("deleted".into(), deleted.to_string())]))
+            }
+            Err(_) => {
+                log.push("spool\\PRINTERS not found".into());
+                Err(keys::ITEM_NOT_FOUND)
+            }
+        };
+        // Always bring the spooler back, even when the folder was missing.
+        match run_exe("net.exe", &["start", "Spooler"], log) {
+            Ok(0 | 2) => cleaned,
+            _ => Err(keys::FAILED),
+        }
+    }
+
     pub fn run_sfc_dism(log: &mut Vec<String>) -> Result<Params, &'static str> {
         let dism = run_exe(
             "dism.exe",
@@ -321,6 +371,12 @@ mod stub {
         na(l)
     }
     pub fn restart_audio_services(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn restart_spooler(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn clear_print_queue(l: &mut Vec<String>) -> Result<Params, &'static str> {
         na(l)
     }
 }
@@ -386,6 +442,17 @@ mod tests {
         })
         .0;
         assert_eq!(erroring, Err(crate::actions::keys::FAILED));
+    }
+
+    #[test]
+    fn is_spool_file_matches_only_spl_and_shd() {
+        use std::ffi::OsStr;
+        for ok in ["00001.SPL", "00001.shd", "00002.Spl"] {
+            assert!(is_spool_file(OsStr::new(ok)), "{ok}");
+        }
+        for no in ["x.txt", "x.spl.exe", "spl", ".SPL", "00001.SPLX", ""] {
+            assert!(!is_spool_file(OsStr::new(no)), "{no:?}");
+        }
     }
 
     #[test]

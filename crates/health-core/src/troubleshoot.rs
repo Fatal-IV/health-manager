@@ -15,16 +15,18 @@ pub enum TroubleshooterId {
     SystemFiles,
     Slowness,
     Audio,
+    Printer,
 }
 
 impl TroubleshooterId {
     /// Every troubleshooter, in the order the interface lists them.
-    pub const ALL: [TroubleshooterId; 5] = [
+    pub const ALL: [TroubleshooterId; 6] = [
         TroubleshooterId::Network,
         TroubleshooterId::WindowsUpdate,
         TroubleshooterId::SystemFiles,
         TroubleshooterId::Slowness,
         TroubleshooterId::Audio,
+        TroubleshooterId::Printer,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -34,6 +36,7 @@ impl TroubleshooterId {
             TroubleshooterId::SystemFiles => "system_files",
             TroubleshooterId::Slowness => "slowness",
             TroubleshooterId::Audio => "audio",
+            TroubleshooterId::Printer => "printer",
         }
     }
 }
@@ -77,6 +80,8 @@ pub enum Test {
     CpuOk,
     /// The Windows audio services are running.
     AudioServices,
+    /// The print spooler service is running.
+    SpoolerRunning,
 }
 
 const UPDATE_STALE_DAYS: u64 = 60;
@@ -162,6 +167,7 @@ impl Test {
                 _ => Outcome::Unknown,
             },
             Test::AudioServices => services_running(p, &AUDIO_SERVICES),
+            Test::SpoolerRunning => services_running(p, &["Spooler"]),
             Test::CpuOk => match p.cpu_percent() {
                 Ok(c) => from_bool::<()>(Ok(c < 90.0)),
                 Err(_) => Outcome::Unknown,
@@ -226,6 +232,19 @@ const AUDIO_STEPS: [Step; 1] = [Step {
     recheck: Some(Test::AudioServices),
 }];
 
+const PRINTER_STEPS: [Step; 2] = [
+    Step {
+        id: "print.restart_spooler",
+        fix: FixId::RestartSpooler,
+        recheck: Some(Test::SpoolerRunning),
+    },
+    Step {
+        id: "print.clear_queue",
+        fix: FixId::ClearPrintQueue,
+        recheck: Some(Test::SpoolerRunning),
+    },
+];
+
 pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
     match id {
         TroubleshooterId::Network => Troubleshooter {
@@ -256,6 +275,12 @@ pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
             id,
             diagnose: &[Test::AudioServices],
             steps: &AUDIO_STEPS,
+            hints: &[],
+        },
+        TroubleshooterId::Printer => Troubleshooter {
+            id,
+            diagnose: &[Test::SpoolerRunning],
+            steps: &PRINTER_STEPS,
             hints: &[],
         },
     }
@@ -458,7 +483,7 @@ mod tests {
 
     #[test]
     fn ids_parse_and_every_id_has_a_troubleshooter() {
-        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1)] {
+        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1), ("printer", 2)] {
             let id: TroubleshooterId = name.parse().unwrap();
             assert_eq!(id.as_str(), name);
             assert_eq!(for_id(id).steps.len(), steps, "{name}");
@@ -581,6 +606,56 @@ mod tests {
         let mut still = audio_ok();
         still.services.insert("Audiosrv".into(), ServiceState::Stopped);
         assert_eq!(t.after_fix(0, &still), State::Exhausted);
+    }
+
+    fn printer_ok() -> FakeProbe {
+        let mut p = FakeProbe::default();
+        p.services.insert("Spooler".into(), ServiceState::Running);
+        p
+    }
+
+    fn printer_stopped() -> FakeProbe {
+        let mut p = FakeProbe::default();
+        p.services.insert("Spooler".into(), ServiceState::Stopped);
+        p
+    }
+
+    #[test]
+    fn printer_is_healthy_when_the_spooler_runs() {
+        assert_eq!(for_id(TroubleshooterId::Printer).start(&printer_ok()), State::Healthy);
+    }
+
+    #[test]
+    fn printer_stopped_disabled_or_missing_suggests_the_restart() {
+        let t = for_id(TroubleshooterId::Printer);
+        for state in [ServiceState::Stopped, ServiceState::Disabled, ServiceState::Missing] {
+            let mut p = FakeProbe::default();
+            p.services.insert("Spooler".into(), state);
+            assert_eq!(t.start(&p), suggest(0), "{state:?}");
+        }
+        assert_eq!(t.start(&FakeProbe::default()), suggest(0));
+        assert_eq!(t.steps[0].fix, crate::fixes::FixId::RestartSpooler);
+    }
+
+    #[test]
+    fn printer_unreadable_services_are_unmeasured_not_healthy() {
+        let p = FakeProbe {
+            services_error: Some(ProbeError::Unavailable("x".into())),
+            ..printer_ok()
+        };
+        assert_eq!(
+            for_id(TroubleshooterId::Printer).start(&p),
+            State::Suggest { step: 0, unmeasured: true }
+        );
+    }
+
+    #[test]
+    fn printer_restart_that_does_not_help_moves_to_the_queue_step() {
+        let t = for_id(TroubleshooterId::Printer);
+        assert_eq!(t.after_fix(0, &printer_ok()), State::Resolved { reboot: false });
+        assert_eq!(t.after_fix(0, &printer_stopped()), suggest(1));
+        assert_eq!(t.steps[1].fix, crate::fixes::FixId::ClearPrintQueue);
+        assert_eq!(t.after_fix(1, &printer_stopped()), State::Exhausted);
     }
 
     #[test]

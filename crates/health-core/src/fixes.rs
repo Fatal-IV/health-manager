@@ -35,10 +35,14 @@ pub enum FixId {
     ResetWinsock,
     /// Restarts the Windows audio services (`Audiosrv`, `AudioEndpointBuilder`).
     RestartAudioServices,
+    /// Restarts the print spooler service (`Spooler`).
+    RestartSpooler,
+    /// Stops the spooler, deletes the queued print jobs (`.SPL`/`.SHD`), starts it again.
+    ClearPrintQueue,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 14] = [
+    pub const ALL: [FixId; 16] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -53,6 +57,8 @@ impl FixId {
         FixId::RenewIp,
         FixId::ResetWinsock,
         FixId::RestartAudioServices,
+        FixId::RestartSpooler,
+        FixId::ClearPrintQueue,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -74,6 +80,8 @@ impl FixId {
             FixId::RenewIp => 11,
             FixId::ResetWinsock => 12,
             FixId::RestartAudioServices => 13,
+            FixId::RestartSpooler => 14,
+            FixId::ClearPrintQueue => 15,
         }
     }
 
@@ -92,7 +100,9 @@ impl FixId {
             | FixId::FlushDns
             | FixId::RenewIp
             | FixId::ResetWinsock
-            | FixId::RestartAudioServices => false,
+            | FixId::RestartAudioServices
+            | FixId::RestartSpooler
+            | FixId::ClearPrintQueue => false,
         }
     }
 
@@ -112,6 +122,8 @@ impl FixId {
             FixId::RenewIp => "renew_ip",
             FixId::ResetWinsock => "reset_winsock",
             FixId::RestartAudioServices => "restart_audio_services",
+            FixId::RestartSpooler => "restart_spooler",
+            FixId::ClearPrintQueue => "clear_print_queue",
         }
     }
 }
@@ -180,6 +192,8 @@ fn change_count(fix: FixId) -> usize {
         FixId::RenewIp => 2,
         FixId::ResetWinsock => 2,
         FixId::RestartAudioServices => 2,
+        FixId::RestartSpooler => 2,
+        FixId::ClearPrintQueue => 3,
     }
 }
 
@@ -197,6 +211,8 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::RenewIp
             | FixId::ResetWinsock
             | FixId::RestartAudioServices
+            | FixId::RestartSpooler
+            | FixId::ClearPrintQueue
     )
 }
 
@@ -319,6 +335,8 @@ mod tests {
             FixId::RenewIp => FixId::RenewIp,
             FixId::ResetWinsock => FixId::ResetWinsock,
             FixId::RestartAudioServices => FixId::RestartAudioServices,
+            FixId::RestartSpooler => FixId::RestartSpooler,
+            FixId::ClearPrintQueue => FixId::ClearPrintQueue,
         }
     }
 
@@ -339,6 +357,8 @@ mod tests {
             FixId::RenewIp,
             FixId::ResetWinsock,
             FixId::RestartAudioServices,
+            FixId::RestartSpooler,
+            FixId::ClearPrintQueue,
         ]
         .into_iter()
         .map(witness)
@@ -451,14 +471,17 @@ mod tests {
         }
     }
 
-    #[allow(clippy::single_element_loop)] // the list grows with each device troubleshooter
     #[test]
     fn device_fixes_have_expected_plans() {
-        for f in [FixId::RestartAudioServices] {
+        for (f, changes) in [
+            (FixId::RestartAudioServices, 2),
+            (FixId::RestartSpooler, 2),
+            (FixId::ClearPrintQueue, 3),
+        ] {
             let p = fix_plan(f, None);
             assert!(p.needs_admin, "{f:?}");
             assert!(!p.reversible, "{f:?}");
-            assert_eq!(p.changes.len(), 2, "{f:?}");
+            assert_eq!(p.changes.len(), changes, "{f:?}");
             assert!(validate_arg(f, Some("x")).is_err(), "{f:?}");
         }
     }
