@@ -39,10 +39,12 @@ pub enum FixId {
     RestartSpooler,
     /// Stops the spooler, deletes the queued print jobs (`.SPL`/`.SHD`), starts it again.
     ClearPrintQueue,
+    /// Restarts the `bthserv` service.
+    RestartBluetooth,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 16] = [
+    pub const ALL: [FixId; 17] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -59,6 +61,7 @@ impl FixId {
         FixId::RestartAudioServices,
         FixId::RestartSpooler,
         FixId::ClearPrintQueue,
+        FixId::RestartBluetooth,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -82,6 +85,7 @@ impl FixId {
             FixId::RestartAudioServices => 13,
             FixId::RestartSpooler => 14,
             FixId::ClearPrintQueue => 15,
+            FixId::RestartBluetooth => 16,
         }
     }
 
@@ -102,7 +106,8 @@ impl FixId {
             | FixId::ResetWinsock
             | FixId::RestartAudioServices
             | FixId::RestartSpooler
-            | FixId::ClearPrintQueue => false,
+            | FixId::ClearPrintQueue
+            | FixId::RestartBluetooth => false,
         }
     }
 
@@ -124,6 +129,7 @@ impl FixId {
             FixId::RestartAudioServices => "restart_audio_services",
             FixId::RestartSpooler => "restart_spooler",
             FixId::ClearPrintQueue => "clear_print_queue",
+            FixId::RestartBluetooth => "restart_bluetooth",
         }
     }
 }
@@ -194,6 +200,7 @@ fn change_count(fix: FixId) -> usize {
         FixId::RestartAudioServices => 2,
         FixId::RestartSpooler => 2,
         FixId::ClearPrintQueue => 3,
+        FixId::RestartBluetooth => 2,
     }
 }
 
@@ -213,6 +220,7 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::RestartAudioServices
             | FixId::RestartSpooler
             | FixId::ClearPrintQueue
+            | FixId::RestartBluetooth
     )
 }
 
@@ -337,6 +345,7 @@ mod tests {
             FixId::RestartAudioServices => FixId::RestartAudioServices,
             FixId::RestartSpooler => FixId::RestartSpooler,
             FixId::ClearPrintQueue => FixId::ClearPrintQueue,
+            FixId::RestartBluetooth => FixId::RestartBluetooth,
         }
     }
 
@@ -359,6 +368,7 @@ mod tests {
             FixId::RestartAudioServices,
             FixId::RestartSpooler,
             FixId::ClearPrintQueue,
+            FixId::RestartBluetooth,
         ]
         .into_iter()
         .map(witness)
@@ -477,6 +487,7 @@ mod tests {
             (FixId::RestartAudioServices, 2),
             (FixId::RestartSpooler, 2),
             (FixId::ClearPrintQueue, 3),
+            (FixId::RestartBluetooth, 2),
         ] {
             let p = fix_plan(f, None);
             assert!(p.needs_admin, "{f:?}");

@@ -16,17 +16,19 @@ pub enum TroubleshooterId {
     Slowness,
     Audio,
     Printer,
+    Bluetooth,
 }
 
 impl TroubleshooterId {
     /// Every troubleshooter, in the order the interface lists them.
-    pub const ALL: [TroubleshooterId; 6] = [
+    pub const ALL: [TroubleshooterId; 7] = [
         TroubleshooterId::Network,
         TroubleshooterId::WindowsUpdate,
         TroubleshooterId::SystemFiles,
         TroubleshooterId::Slowness,
         TroubleshooterId::Audio,
         TroubleshooterId::Printer,
+        TroubleshooterId::Bluetooth,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -37,6 +39,7 @@ impl TroubleshooterId {
             TroubleshooterId::Slowness => "slowness",
             TroubleshooterId::Audio => "audio",
             TroubleshooterId::Printer => "printer",
+            TroubleshooterId::Bluetooth => "bluetooth",
         }
     }
 }
@@ -245,6 +248,12 @@ const PRINTER_STEPS: [Step; 2] = [
     },
 ];
 
+const BLUETOOTH_STEPS: [Step; 1] = [Step {
+    id: "bt.restart_service",
+    fix: FixId::RestartBluetooth,
+    recheck: None,
+}];
+
 pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
     match id {
         TroubleshooterId::Network => Troubleshooter {
@@ -281,6 +290,12 @@ pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
             id,
             diagnose: &[Test::SpoolerRunning],
             steps: &PRINTER_STEPS,
+            hints: &[],
+        },
+        TroubleshooterId::Bluetooth => Troubleshooter {
+            id,
+            diagnose: &[],
+            steps: &BLUETOOTH_STEPS,
             hints: &[],
         },
     }
@@ -483,7 +498,7 @@ mod tests {
 
     #[test]
     fn ids_parse_and_every_id_has_a_troubleshooter() {
-        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1), ("printer", 2)] {
+        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1), ("printer", 2), ("bluetooth", 1)] {
             let id: TroubleshooterId = name.parse().unwrap();
             assert_eq!(id.as_str(), name);
             assert_eq!(for_id(id).steps.len(), steps, "{name}");
@@ -656,6 +671,16 @@ mod tests {
         assert_eq!(t.after_fix(0, &printer_stopped()), suggest(1));
         assert_eq!(t.steps[1].fix, crate::fixes::FixId::ClearPrintQueue);
         assert_eq!(t.after_fix(1, &printer_stopped()), State::Exhausted);
+    }
+
+    #[test]
+    fn bluetooth_has_no_test_so_it_always_offers_its_one_step() {
+        let t = for_id(TroubleshooterId::Bluetooth);
+        assert_eq!(t.steps[0].fix, crate::fixes::FixId::RestartBluetooth);
+        assert!(t.steps[0].recheck.is_none());
+        assert_eq!(t.start(&FakeProbe::default()), suggest(0));
+        assert_eq!(t.after_fix(0, &FakeProbe::default()), State::Resolved { reboot: false });
+        assert_eq!(t.skip(0), State::Exhausted);
     }
 
     #[test]

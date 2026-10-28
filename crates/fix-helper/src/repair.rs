@@ -316,6 +316,10 @@ mod imp {
         }
     }
 
+    pub fn restart_bluetooth(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        restart_services(&["bthserv"], log)
+    }
+
     pub fn run_sfc_dism(log: &mut Vec<String>) -> Result<Params, &'static str> {
         let dism = run_exe(
             "dism.exe",
@@ -377,6 +381,9 @@ mod stub {
         na(l)
     }
     pub fn clear_print_queue(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
+    pub fn restart_bluetooth(l: &mut Vec<String>) -> Result<Params, &'static str> {
         na(l)
     }
 }

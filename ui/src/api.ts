@@ -96,7 +96,7 @@ async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<Res
 }
 
 /** Every troubleshooter, in display order. A Rust test keeps this list equal to `TroubleshooterId::ALL`. */
-export const TROUBLESHOOTERS = ["network", "windows_update", "system_files", "slowness", "audio", "printer"] as const;
+export const TROUBLESHOOTERS = ["network", "windows_update", "system_files", "slowness", "audio", "printer", "bluetooth"] as const;
 export type TroubleshooterId = (typeof TROUBLESHOOTERS)[number];
 
 export interface TroubleshootState {
