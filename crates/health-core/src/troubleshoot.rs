@@ -17,11 +17,12 @@ pub enum TroubleshooterId {
     Audio,
     Printer,
     Bluetooth,
+    Camera,
 }
 
 impl TroubleshooterId {
     /// Every troubleshooter, in the order the interface lists them.
-    pub const ALL: [TroubleshooterId; 7] = [
+    pub const ALL: [TroubleshooterId; 8] = [
         TroubleshooterId::Network,
         TroubleshooterId::WindowsUpdate,
         TroubleshooterId::SystemFiles,
@@ -29,6 +30,7 @@ impl TroubleshooterId {
         TroubleshooterId::Audio,
         TroubleshooterId::Printer,
         TroubleshooterId::Bluetooth,
+        TroubleshooterId::Camera,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -40,6 +42,7 @@ impl TroubleshooterId {
             TroubleshooterId::Audio => "audio",
             TroubleshooterId::Printer => "printer",
             TroubleshooterId::Bluetooth => "bluetooth",
+            TroubleshooterId::Camera => "camera",
         }
     }
 }
@@ -254,6 +257,12 @@ const BLUETOOTH_STEPS: [Step; 1] = [Step {
     recheck: None,
 }];
 
+const CAMERA_STEPS: [Step; 1] = [Step {
+    id: "cam.restart_service",
+    fix: FixId::RestartCameraService,
+    recheck: None,
+}];
+
 pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
     match id {
         TroubleshooterId::Network => Troubleshooter {
@@ -296,6 +305,12 @@ pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
             id,
             diagnose: &[],
             steps: &BLUETOOTH_STEPS,
+            hints: &[],
+        },
+        TroubleshooterId::Camera => Troubleshooter {
+            id,
+            diagnose: &[],
+            steps: &CAMERA_STEPS,
             hints: &[],
         },
     }
@@ -498,7 +513,7 @@ mod tests {
 
     #[test]
     fn ids_parse_and_every_id_has_a_troubleshooter() {
-        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1), ("printer", 2), ("bluetooth", 1)] {
+        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1), ("printer", 2), ("bluetooth", 1), ("camera", 1)] {
             let id: TroubleshooterId = name.parse().unwrap();
             assert_eq!(id.as_str(), name);
             assert_eq!(for_id(id).steps.len(), steps, "{name}");
@@ -677,6 +692,16 @@ mod tests {
     fn bluetooth_has_no_test_so_it_always_offers_its_one_step() {
         let t = for_id(TroubleshooterId::Bluetooth);
         assert_eq!(t.steps[0].fix, crate::fixes::FixId::RestartBluetooth);
+        assert!(t.steps[0].recheck.is_none());
+        assert_eq!(t.start(&FakeProbe::default()), suggest(0));
+        assert_eq!(t.after_fix(0, &FakeProbe::default()), State::Resolved { reboot: false });
+        assert_eq!(t.skip(0), State::Exhausted);
+    }
+
+    #[test]
+    fn camera_has_no_test_so_it_always_offers_its_one_step() {
+        let t = for_id(TroubleshooterId::Camera);
+        assert_eq!(t.steps[0].fix, crate::fixes::FixId::RestartCameraService);
         assert!(t.steps[0].recheck.is_none());
         assert_eq!(t.start(&FakeProbe::default()), suggest(0));
         assert_eq!(t.after_fix(0, &FakeProbe::default()), State::Resolved { reboot: false });

@@ -80,6 +80,7 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
         FixId::RestartSpooler => crate::repair::restart_spooler(&mut log),
         FixId::ClearPrintQueue => crate::repair::clear_print_queue(&mut log),
         FixId::RestartBluetooth => crate::repair::restart_bluetooth(&mut log),
+        FixId::RestartCameraService => crate::repair::restart_camera_service(&mut log),
         FixId::ReadBootTime => read_boot_time(&mut log),
     };
     let message = (fix == FixId::ReadBootTime).then_some(keys::BOOT_READ);
@@ -393,6 +394,7 @@ mod tests {
             FixId::RestartSpooler,
             FixId::ClearPrintQueue,
             FixId::RestartBluetooth,
+            FixId::RestartCameraService,
         ] {
             let e = run(fix, Some("x")).unwrap_err();
             assert_eq!(e.key, keys::INVALID, "{fix:?}");

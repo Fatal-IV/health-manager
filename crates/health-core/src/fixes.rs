@@ -41,10 +41,12 @@ pub enum FixId {
     ClearPrintQueue,
     /// Restarts the `bthserv` service.
     RestartBluetooth,
+    /// Restarts the `FrameServer` service.
+    RestartCameraService,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 17] = [
+    pub const ALL: [FixId; 18] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -62,6 +64,7 @@ impl FixId {
         FixId::RestartSpooler,
         FixId::ClearPrintQueue,
         FixId::RestartBluetooth,
+        FixId::RestartCameraService,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -86,6 +89,7 @@ impl FixId {
             FixId::RestartSpooler => 14,
             FixId::ClearPrintQueue => 15,
             FixId::RestartBluetooth => 16,
+            FixId::RestartCameraService => 17,
         }
     }
 
@@ -107,7 +111,8 @@ impl FixId {
             | FixId::RestartAudioServices
             | FixId::RestartSpooler
             | FixId::ClearPrintQueue
-            | FixId::RestartBluetooth => false,
+            | FixId::RestartBluetooth
+            | FixId::RestartCameraService => false,
         }
     }
 
@@ -130,6 +135,7 @@ impl FixId {
             FixId::RestartSpooler => "restart_spooler",
             FixId::ClearPrintQueue => "clear_print_queue",
             FixId::RestartBluetooth => "restart_bluetooth",
+            FixId::RestartCameraService => "restart_camera_service",
         }
     }
 }
@@ -201,6 +207,7 @@ fn change_count(fix: FixId) -> usize {
         FixId::RestartSpooler => 2,
         FixId::ClearPrintQueue => 3,
         FixId::RestartBluetooth => 2,
+        FixId::RestartCameraService => 2,
     }
 }
 
@@ -221,6 +228,7 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::RestartSpooler
             | FixId::ClearPrintQueue
             | FixId::RestartBluetooth
+            | FixId::RestartCameraService
     )
 }
 
@@ -346,6 +354,7 @@ mod tests {
             FixId::RestartSpooler => FixId::RestartSpooler,
             FixId::ClearPrintQueue => FixId::ClearPrintQueue,
             FixId::RestartBluetooth => FixId::RestartBluetooth,
+            FixId::RestartCameraService => FixId::RestartCameraService,
         }
     }
 
@@ -369,6 +378,7 @@ mod tests {
             FixId::RestartSpooler,
             FixId::ClearPrintQueue,
             FixId::RestartBluetooth,
+            FixId::RestartCameraService,
         ]
         .into_iter()
         .map(witness)
@@ -488,6 +498,7 @@ mod tests {
             (FixId::RestartSpooler, 2),
             (FixId::ClearPrintQueue, 3),
             (FixId::RestartBluetooth, 2),
+            (FixId::RestartCameraService, 2),
         ] {
             let p = fix_plan(f, None);
             assert!(p.needs_admin, "{f:?}");

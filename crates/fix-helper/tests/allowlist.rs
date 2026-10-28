@@ -91,7 +91,7 @@ fn device_fixes_with_an_argument_exit_2_and_run_nothing() {
     let dir = scratch("device");
     let sentinel = dir.join("pwned.txt");
     let echo = format!("x & echo x > \"{}\"", sentinel.display());
-    for fix in ["restart_audio_services", "restart_spooler", "clear_print_queue", "restart_bluetooth"] {
+    for fix in ["restart_audio_services", "restart_spooler", "clear_print_queue", "restart_bluetooth", "restart_camera_service"] {
         for arg in ["x", "x & calc", echo.as_str(), "$(calc)"] {
             let r = run_in(&dir, &["--fix", fix, "--arg", arg], true);
             assert_eq!(r.code, 2, "{fix} {arg:?}");

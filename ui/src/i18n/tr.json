@@ -239,6 +239,13 @@
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
       }
     },
+    "restart_camera_service": {
+      "summary": "Kamera servisini yeniden başlat",
+      "change": {
+        "1": "Windows Kamera Çerçeve Sunucusu servisi durdurulup yeniden başlatılacak. Kamerayı kullanan uygulamalar birkaç saniyeliğine görüntüyü kaybedebilir.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
+    },
     "restart_audio_services": {
       "summary": "Ses servislerini yeniden başlat",
       "change": {
@@ -317,6 +324,7 @@
         "system_files": "Sistem dosyaları",
         "slowness": "Yavaşlık",
         "audio": "Ses",
+        "camera": "Kamera",
         "bluetooth": "Bluetooth",
         "printer": "Yazıcı"
       },
@@ -326,6 +334,7 @@
         "system_files": "Bozuk ya da eksik Windows dosyaları",
         "slowness": "Bilgisayar yavaş ya da disk dolu",
         "audio": "Ses gelmiyor ya da kesiliyor",
+        "camera": "Kamera açılmıyor ya da görüntü gelmiyor",
         "bluetooth": "Bluetooth aygıtı bağlanmıyor ya da görünmüyor",
         "printer": "Yazıcı yazdırmıyor ya da belge kuyrukta takılı"
       },
@@ -375,6 +384,11 @@
           "resolved": "Bluetooth servisi yeniden başlatıldı. Aygıtınızı yeniden eşleştirmeyi ya da bağlamayı deneyin.",
           "exhausted": "Servis yeniden başlatıldı ama sorun sürüyorsa Bluetooth'u Ayarlar'dan kapatıp açın; olmazsa bilgisayarı yeniden başlatın ya da Bluetooth sürücüsünü denetleyin."
         },
+        "camera": {
+          "healthy": "Bu sorun gidericinin hızlı bir testi yok; kamera servisini doğrudan yeniden başlatabilirsiniz.",
+          "resolved": "Kamera servisi yeniden başlatıldı. Kamerayı kullanan uygulamayı kapatıp yeniden açın.",
+          "exhausted": "Servis yeniden başlatıldı ama kamera hâlâ çalışmıyorsa Ayarlar'da kamera izinlerini denetleyin, kamerayı kullanan diğer uygulamaları kapatın ya da bilgisayarı yeniden başlatın."
+        },
         "audio": {
           "healthy": "Windows ses servisleri çalışıyor. Sorun aygıtta ya da ses ayarında olabilir: hoparlör ya da kulaklığın bağlı ve sesin açık olduğunu denetleyin.",
           "resolved": "Ses servisleri yeniden başlatıldı ve çalışıyor. Sesi tekrar deneyin.",
@@ -398,6 +412,7 @@
         "restart_spooler": "Önce en hafif adım: yazdırma servisi takılmış ya da durmuş olabilir; yeniden başlatmak belgeleri silmez.",
         "clear_print_queue": "Kuyrukta takılı kalmış bir belge diğerlerini engelliyor olabilir; bekleyen belgeler silinir.",
         "restart_bluetooth": "Bluetooth servisi takılmış olabilir; yeniden başlatmak çoğu zaman aygıtların yeniden bulunmasını sağlar.",
+        "restart_camera_service": "Kamera servisi takılmış olabilir; yeniden başlatmak çoğu zaman kameranın yeniden açılmasını sağlar.",
         "restart_audio_services": "Ses servisleri takılmış ya da durmuş olabilir; yeniden başlatmak çoğu zaman sesi geri getirir."
       }
     },
