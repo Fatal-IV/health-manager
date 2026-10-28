@@ -131,18 +131,27 @@
       "change": {
         "1": "Kullanıcı geçici klasöründeki dosyalar silinecek. Kullanımda olan bazı dosyalar silinemeyebilir ve atlanır.",
         "2": "Silinen dosyalar geri alınamaz. Yapılan her işlem kayda geçirilir."
+      },
+      "op": {
+        "1": "Geçici dosyalar siliniyor"
       }
     },
     "empty_recycle_bin": {
       "summary": "Geri dönüşüm kutusunu boşalt",
       "change": {
         "1": "Geri dönüşüm kutusundaki tüm dosyalar kalıcı olarak silinecek ve geri getirilemeyecek. İşlem kayda geçirilir."
+      },
+      "op": {
+        "1": "Geri dönüşüm kutusu boşaltılıyor"
       }
     },
     "clean_update_leftovers": {
       "summary": "Windows güncelleme artıklarını temizle",
       "change": {
         "1": "Windows'un indirdiği ve artık gerek duymadığı eski güncelleme dosyaları silinecek. Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Yarım kalan güncelleme indirmeleri siliniyor"
       }
     },
     "disable_startup_item": {
@@ -150,6 +159,9 @@
       "change": {
         "1": "{{target}} adlı program bilgisayar açılırken artık kendiliğinden başlamayacak.",
         "2": "Program silinmez; dilediğiniz zaman yeniden açabilirsiniz. İşlem kayda geçirilir."
+      },
+      "op": {
+        "1": "Başlangıç öğesi devre dışı bırakılıyor"
       }
     },
     "end_process": {
@@ -157,6 +169,9 @@
       "change": {
         "1": "Numarası {{target}} olan program hemen kapatılacak.",
         "2": "Programda kaydedilmemiş çalışmanız varsa kaybolabilir. İşlem geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Program kapatılıyor"
       }
     },
     "reset_windows_update": {
@@ -165,18 +180,29 @@
         "1": "Windows Update hizmetleri kısa süreliğine durdurulup yeniden başlatılacak.",
         "2": "Güncelleme önbellek klasörleri silinmez, yedek olarak yeniden adlandırılır (.bak); gerekirse geri alınabilir.",
         "3": "Bu işlem yönetici izni ister ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Güncelleme servisleri durduruluyor",
+        "2": "Güncelleme klasörleri yedekleniyor",
+        "3": "Güncelleme servisleri başlatılıyor"
       }
     },
     "enable_defender_realtime": {
       "summary": "Virüs korumasını aç",
       "change": {
         "1": "Windows Defender'ın gerçek zamanlı koruması açılacak. Bu işlem yönetici izni ister, istediğiniz zaman tekrar kapatılabilir ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Gerçek zamanlı koruma açılıyor"
       }
     },
     "enable_firewall": {
       "summary": "Güvenlik duvarını aç",
       "change": {
         "1": "Windows güvenlik duvarı tüm ağ türlerinde açılacak. Bu işlem yönetici izni ister, istediğiniz zaman tekrar kapatılabilir ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Güvenlik duvarı açılıyor"
       }
     },
     "read_boot_time": {
@@ -188,6 +214,9 @@
       "change": {
         "1": "Windows'un açılış kaydı okunup sonuç rapora eklenecek. Hiçbir ayar ya da dosya değiştirilmez.",
         "2": "Kayıt yalnızca yönetici izniyle okunabildiği için Windows sizden bir kez izin isteyecek."
+      },
+      "op": {
+        "1": "Açılış süresi okunuyor"
       }
     },
     "run_sfc_dism": {
@@ -195,12 +224,19 @@
       "change": {
         "1": "Windows'un kendi onarım araçları çalıştırılıp bozulmuş sistem dosyaları onarılacak. Bu birkaç dakika sürebilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Windows görüntüsü onarılıyor (DISM)",
+        "2": "Sistem dosyaları taranıp onarılıyor (SFC)"
       }
     },
     "flush_dns": {
       "summary": "DNS önbelleğini temizle",
       "change": {
         "1": "Bilgisayarın hatırladığı site adresleri silinecek; adresler ilk açılışta yeniden öğrenilir. Windows sizden bir kez izin isteyecek."
+      },
+      "op": {
+        "1": "DNS önbelleği temizleniyor"
       }
     },
     "renew_ip": {
@@ -208,6 +244,10 @@
       "change": {
         "1": "Bilgisayar ağdan aldığı IP adresini bırakıp yenisini isteyecek. İnternet bağlantınız birkaç saniyeliğine kesilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "IP adresi bırakılıyor",
+        "2": "Yeni IP adresi isteniyor"
       }
     },
     "reset_winsock": {
@@ -215,6 +255,9 @@
       "change": {
         "1": "Windows'un ağ bileşenleri varsayılan duruma döndürülecek. İşlemin tamamlanması için bilgisayarı yeniden başlatmanız gerekir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Ağ bileşenleri sıfırlanıyor"
       }
     },
     "restart_spooler": {
@@ -222,6 +265,10 @@
       "change": {
         "1": "Windows yazdırma servisi (Yazdırma Biriktiricisi) durdurulup yeniden başlatılacak. Sıradaki belgeler korunur.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Yazdırma servisi durduruluyor",
+        "2": "Yazdırma servisi başlatılıyor"
       }
     },
     "clear_print_queue": {
@@ -230,6 +277,11 @@
         "1": "Yazdırılmayı bekleyen tüm belgeler kuyruktan silinecek; bunları yeniden yazdırmanız gerekir.",
         "2": "Yazdırma servisi durdurulup temizlikten sonra yeniden başlatılacak.",
         "3": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Yazdırma servisi durduruluyor",
+        "2": "Bekleyen belgeler siliniyor",
+        "3": "Yazdırma servisi başlatılıyor"
       }
     },
     "restart_bluetooth": {
@@ -237,6 +289,10 @@
       "change": {
         "1": "Windows Bluetooth desteği servisi durdurulup yeniden başlatılacak. Bağlı Bluetooth aygıtları birkaç saniyeliğine kopabilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Bluetooth servisi durduruluyor",
+        "2": "Bluetooth servisi başlatılıyor"
       }
     },
     "restart_camera_service": {
@@ -244,6 +300,10 @@
       "change": {
         "1": "Windows Kamera Çerçeve Sunucusu servisi durdurulup yeniden başlatılacak. Kamerayı kullanan uygulamalar birkaç saniyeliğine görüntüyü kaybedebilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Kamera servisi durduruluyor",
+        "2": "Kamera servisi başlatılıyor"
       }
     },
     "restart_audio_services": {
@@ -251,6 +311,10 @@
       "change": {
         "1": "Windows ses servisleri durdurulup yeniden başlatılacak. Çalan sesler birkaç saniyeliğine kesilir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      },
+      "op": {
+        "1": "Ses servisleri durduruluyor",
+        "2": "Ses servisleri başlatılıyor"
       }
     }
   },

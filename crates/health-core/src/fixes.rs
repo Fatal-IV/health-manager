@@ -185,6 +185,9 @@ pub struct FixPlan {
     pub params: BTreeMap<String, String>,
     pub needs_admin: bool,
     pub reversible: bool,
+    /// Operation keys (`fix.<id>.op.1` ..= `.n`), in the order the fix does them.
+    #[serde(default)]
+    pub ops: Vec<String>,
 }
 
 /// Number of change lines per fix (`fix.<id>.change.1` ..= `.n`).
@@ -208,6 +211,30 @@ fn change_count(fix: FixId) -> usize {
         FixId::ClearPrintQueue => 3,
         FixId::RestartBluetooth => 2,
         FixId::RestartCameraService => 2,
+    }
+}
+
+/// Number of operations per fix (`fix.<id>.op.1` ..= `.n`). Exhaustive: a new
+/// variant fails to compile until it is given a count here.
+pub fn op_count(fix: FixId) -> usize {
+    match fix {
+        FixId::ResetWindowsUpdate | FixId::ClearPrintQueue => 3,
+        FixId::RunSfcDism
+        | FixId::RenewIp
+        | FixId::RestartAudioServices
+        | FixId::RestartSpooler
+        | FixId::RestartBluetooth
+        | FixId::RestartCameraService => 2,
+        FixId::CleanTemp
+        | FixId::EmptyRecycleBin
+        | FixId::CleanUpdateLeftovers
+        | FixId::DisableStartupItem
+        | FixId::EndProcess
+        | FixId::EnableDefenderRealtime
+        | FixId::EnableFirewall
+        | FixId::ReadBootTime
+        | FixId::FlushDns
+        | FixId::ResetWinsock => 1,
     }
 }
 
@@ -265,6 +292,9 @@ pub fn fix_plan(fix: FixId, arg: Option<&str>) -> FixPlan {
         params,
         needs_admin: needs_admin(fix),
         reversible: reversible(fix),
+        ops: (1..=op_count(fix))
+            .map(|n| format!("fix.{id}.op.{n}"))
+            .collect(),
     }
 }
 
@@ -509,6 +539,33 @@ mod tests {
     }
 
     #[test]
+    fn every_fix_has_ops_matching_op_count() {
+        for f in FixId::ALL {
+            let p = fix_plan(f, None);
+            assert!(op_count(f) >= 1, "{f:?}");
+            assert_eq!(p.ops.len(), op_count(f), "{f:?}");
+            for (i, k) in p.ops.iter().enumerate() {
+                assert_eq!(k, &format!("fix.{}.op.{}", f.as_str(), i + 1));
+            }
+        }
+    }
+
+    #[test]
+    fn op_counts_match_the_spec_table() {
+        use FixId::*;
+        for f in [ResetWindowsUpdate, ClearPrintQueue] {
+            assert_eq!(op_count(f), 3, "{f:?}");
+        }
+        for f in [RunSfcDism, RenewIp, RestartAudioServices, RestartSpooler, RestartBluetooth, RestartCameraService] {
+            assert_eq!(op_count(f), 2, "{f:?}");
+        }
+        let multi = [ResetWindowsUpdate, ClearPrintQueue, RunSfcDism, RenewIp, RestartAudioServices, RestartSpooler, RestartBluetooth, RestartCameraService];
+        for f in FixId::ALL.into_iter().filter(|f| !multi.contains(f)) {
+            assert_eq!(op_count(f), 1, "{f:?}");
+        }
+    }
+
+    #[test]
     fn plan_lists_at_least_one_change() {
         for f in FixId::ALL {
             let p = fix_plan(f, None);
@@ -541,6 +598,9 @@ mod tests {
             assert!(lookup(&p.summary_key), "missing {}", p.summary_key);
             for c in &p.changes {
                 assert!(lookup(c), "missing {c}");
+            }
+            for o in &p.ops {
+                assert!(lookup(o), "missing {o}");
             }
         }
     }
