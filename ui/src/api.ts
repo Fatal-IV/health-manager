@@ -39,6 +39,8 @@ export interface FixPlan {
   params: Record<string, string>;
   needs_admin: boolean;
   reversible: boolean;
+  /** Keys of the operations the fix performs, in order. */
+  ops: string[];
 }
 export type FixOutcome =
   | { status: "applied"; message: string; params: Record<string, string> }
@@ -112,6 +114,11 @@ export interface TroubleshootState {
   tested: boolean;
 }
 
+export type ProgressMode = "live" | "staged";
+export interface Settings {
+  progress_mode: ProgressMode;
+}
+
 export const api = {
   startScan: (mode: ScanMode, categories?: Category[]) =>
     call<ScanReport>("start_scan", { mode, categories: categories ?? null }),
@@ -122,11 +129,16 @@ export const api = {
   getReleaseNotes: () => call<ReleaseNotes | null>("get_release_notes"),
   openWindowsUpdate: () => call<void>("open_windows_update"),
   getFixPlan: (fix: string, arg?: string) => call<FixPlan>("get_fix_plan", { fix, arg: arg ?? null }),
-  applyFix: (fix: string, arg?: string) => call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null }),
+  applyFix: (fix: string, arg?: string, withProgress = false) =>
+    call<ApplyResult>("apply_fix_cmd", { fix, arg: arg ?? null, withProgress }),
+  getSettings: () => call<Settings>("get_settings"),
+  setSettings: (progressMode: ProgressMode) => call<Settings>("set_settings", { progressMode }),
   getSession: () => call<Session>("get_session"),
   troubleshootStart: (id: TroubleshooterId) => call<TroubleshootState>("troubleshoot_start", { id }),
   troubleshootAfterFix: (id: TroubleshooterId, step: number) => call<TroubleshootState>("troubleshoot_after_fix", { id, step }),
   troubleshootSkip: (id: TroubleshooterId, step: number) => call<TroubleshootState>("troubleshoot_skip", { id, step }),
   exportReport: (format: ReportFormat, path: string) => call<void>("export_report", { format, path }),
+  onFixProgress: (cb: (p: { done: number; total: number }) => void) =>
+    listen<{ done: number; total: number }>("fix-progress", (e) => cb(e.payload)),
   onProgress: (cb: (p: Progress) => void) => listen<Progress>("scan-progress", (e) => cb(e.payload)),
 };

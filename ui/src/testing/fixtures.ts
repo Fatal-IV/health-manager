@@ -43,6 +43,7 @@ export function plan(over: Partial<FixPlan> = {}): FixPlan {
     params: {},
     needs_admin: false,
     reversible: false,
+    ops: ["fix.clean_temp.op.1"],
     ...over,
   };
 }

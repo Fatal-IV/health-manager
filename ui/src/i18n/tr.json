@@ -583,6 +583,12 @@
       "save_failed": "Rapor kaydedilemedi. Başka bir konum seçmeyi deneyin.",
       "penalty": "−{{points}} puan",
       "no_penalties": "Puan düşüren bir sorun yok."
+    },
+    "working": {
+      "applying": "Onarım uygulanıyor",
+      "checking": "Sonuç denetleniyor",
+      "admin_note": "Windows yönetici izni isterse onaylayın.",
+      "progress": "İlerleme"
     }
   }
 }

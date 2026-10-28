@@ -29,6 +29,8 @@ describe("Troubleshoot", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(api, "getFixPlan").mockResolvedValue(ok(flushPlan()));
+    vi.spyOn(api, "getSettings").mockResolvedValue(ok({ progress_mode: "live" as const }));
+    vi.spyOn(api, "onFixProgress").mockResolvedValue(() => undefined);
   });
 
   it("says nothing looks wrong when every test passes", async () => {
@@ -44,8 +46,34 @@ describe("Troubleshoot", () => {
     render(<Troubleshoot id="network" onBack={() => undefined} />);
     expect(await screen.findByText(t("ui.troubleshoot.step", { n: 1, total: 3 }))).toBeInTheDocument();
     await applyFirstStep();
-    expect(apply).toHaveBeenCalledWith("flush_dns");
+    expect(apply).toHaveBeenCalledWith("flush_dns", undefined, true);
     expect(after).toHaveBeenCalledWith("network", 0);
+    expect(await screen.findByText(t("ui.troubleshoot.resolved_title"))).toBeInTheDocument();
+  });
+
+  it("shows the waiting screen while the fix runs", async () => {
+    vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(suggest()));
+    let finish: (v: ReturnType<typeof ok<ReturnType<typeof applied>>>) => void = () => undefined;
+    vi.spyOn(api, "applyFix").mockReturnValue(new Promise((r) => (finish = r)));
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
+    fireEvent.click(await screen.findByRole("button", { name: t("ui.troubleshoot.apply") }));
+    fireEvent.click(await screen.findByRole("button", { name: t("ui.fix.confirm") }));
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByText(t("ui.working.applying"))).toBeInTheDocument();
+    finish(ok(applied()));
+    expect(await screen.findByRole("button", { name: t("ui.fix.done") })).toBeInTheDocument();
+  });
+
+  it("shows the waiting screen while it re-tests", async () => {
+    vi.spyOn(api, "troubleshootStart").mockResolvedValue(ok(suggest()));
+    vi.spyOn(api, "applyFix").mockResolvedValue(ok(applied()));
+    let finish: (v: ReturnType<typeof ok<TroubleshootState>>) => void = () => undefined;
+    vi.spyOn(api, "troubleshootAfterFix").mockReturnValue(new Promise((r) => (finish = r)));
+    render(<Troubleshoot id="network" onBack={() => undefined} />);
+    await applyFirstStep();
+    expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+    expect(screen.getByText(t("ui.working.checking"))).toBeInTheDocument();
+    finish(ok(st({ state: "resolved" })));
     expect(await screen.findByText(t("ui.troubleshoot.resolved_title"))).toBeInTheDocument();
   });
 

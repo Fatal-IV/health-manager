@@ -618,3 +618,14 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
   .upd-panel, .upd-panel[data-open="true"] { transform: none; }
   .upd-bar span, .upd-icon .spin { animation: none; }
 }
+
+/* Waiting screen of a troubleshooter */
+.working-bar { height: 8px; border-radius: 4px; background: var(--unknown-soft); overflow: hidden; margin: 14px 0; }
+.working-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.working-ops { display: flex; flex-direction: column; gap: 8px; }
+.working-ops li { display: flex; gap: 10px; align-items: center; color: var(--muted); }
+.working-ops li[data-state="done"] { color: var(--good); }
+.working-ops li[data-state="current"] { color: var(--text); font-weight: 600; }
+.working-ops .spin { animation: upd-spin 1s linear infinite; }
+@media (prefers-reduced-motion: no-preference) { .working-bar > span { transition: width 0.4s ease; } }
+@media (prefers-reduced-motion: reduce) { .working-ops .spin { animation: none; } }

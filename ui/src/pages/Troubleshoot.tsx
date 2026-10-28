@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type ApplyResult, type FixPlan, type TroubleshooterId, type TroubleshootState } from "../api";
+import { api, type ApplyResult, type FixPlan, type ProgressMode, type TroubleshooterId, type TroubleshootState } from "../api";
 import { StepCard } from "../components/StepCard";
+import { Working } from "../components/Working";
 import { t } from "../i18n";
 import { FixPreview } from "./FixPreview";
 
@@ -9,6 +10,7 @@ type Phase =
   | { name: "error" }
   | { name: "state"; s: TroubleshootState }
   | { name: "fix"; s: TroubleshootState; plan: FixPlan; busy: boolean; result: ApplyResult | null }
+  | { name: "checking"; s: TroubleshootState; plan: FixPlan }
   | { name: "retry"; s: TroubleshootState };
 
 /**
@@ -18,6 +20,15 @@ type Phase =
  */
 export function Troubleshoot({ id, onBack }: { id: TroubleshooterId; onBack: () => void }) {
   const [phase, setPhase] = useState<Phase>({ name: "loading" });
+  const [mode, setMode] = useState<ProgressMode>("live");
+
+  useEffect(() => {
+    let alive = true;
+    void api.getSettings().then((r) => alive && r.ok && setMode(r.value.progress_mode));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const show = useCallback((r: Awaited<ReturnType<typeof api.troubleshootStart>>) => {
     setPhase(r.ok ? { name: "state", s: r.value } : { name: "error" });
@@ -42,7 +53,7 @@ export function Troubleshoot({ id, onBack }: { id: TroubleshooterId; onBack: () 
     if (phase.name !== "fix" || phase.busy) return;
     const { s, plan } = phase;
     setPhase({ ...phase, busy: true });
-    const r = await api.applyFix(plan.fix);
+    const r = await api.applyFix(plan.fix, undefined, true);
     const result: ApplyResult = r.ok
       ? r.value
       : { outcome: { status: "failed", message: "fix.result.failed", params: {}, detail: r.error }, verified: false, report: null };
@@ -51,10 +62,10 @@ export function Troubleshoot({ id, onBack }: { id: TroubleshooterId; onBack: () 
 
   const done = async () => {
     if (phase.name !== "fix" || !phase.result) return;
-    const { s, result } = phase;
+    const { s, plan, result } = phase;
     // A declined or failed fix never reaches the re-test: nothing changed.
     if (result.outcome.status !== "applied") return setPhase({ name: "retry", s });
-    setPhase({ name: "loading" });
+    setPhase({ name: "checking", s, plan });
     show(await api.troubleshootAfterFix(id, s.step ?? 0));
   };
 
@@ -62,6 +73,13 @@ export function Troubleshoot({ id, onBack }: { id: TroubleshooterId; onBack: () 
     setPhase({ name: "loading" });
     show(await api.troubleshootSkip(id, s.step ?? 0));
   };
+
+  const working = (plan: FixPlan, s: TroubleshootState, stage: "applying" | "checking") => (
+    <Working title={t(`ui.troubleshoot.titles.${id}`)} step={s.step ?? 0} total={s.total} plan={plan} stage={stage} mode={mode} />
+  );
+
+  if (phase.name === "fix" && phase.busy) return working(phase.plan, phase.s, "applying");
+  if (phase.name === "checking") return working(phase.plan, phase.s, "checking");
 
   if (phase.name === "fix") {
     return (
