@@ -458,7 +458,7 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 .home-pane .notice { background: none; border-radius: 0; border-bottom: 1px solid var(--border); padding: 0 0 12px; margin-bottom: 16px; }
 
 /* Start screen: a short summary of the computer, then one clear way to begin */
-.home-b { max-width: 940px; margin: 0 auto; padding: 84px 40px 40px; }
+.home-b { max-width: 940px; margin: 0 auto; padding: 64px 40px 40px; }
 @media (min-width: 821px) and (max-width: 1180px) { .home-b { padding-right: 130px; } }
 .home-b .eyebrow { margin: 0; color: var(--muted); font-weight: 600; }
 .home-b h1 { margin: 6px 0 0; font-family: var(--font-display); font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
@@ -501,7 +501,7 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 .start-options { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .start-options .areas { margin: 0 0 12px; }
 @media (max-width: 720px) {
-  .home-b { padding: 76px 96px 32px 18px; }
+  .home-b { padding: 56px 96px 32px 18px; }
   .ecg-mini { display: none; }
 }
 
