@@ -1,7 +1,7 @@
 import { CheckCircle, Play, Stethoscope, Wrench } from "@phosphor-icons/react";
 import { ActionDock, type DockAction } from "../components/ActionDock";
 import { useEffect, useState } from "react";
-import { api, type Category, type ScanMode, type SystemSummary } from "../api";
+import { api, type Category, type ProgressMode, type ScanMode, type SystemSummary } from "../api";
 import { formatBoot, formatGb, formatUptime, shortOsName } from "../format";
 import { t } from "../i18n";
 
@@ -66,6 +66,8 @@ export function Home({
   const [editing, setEditing] = useState(false);
   const [deep, setDeep] = useState(false);
   const [areas, setAreas] = useState<Category[]>(AREAS);
+  const [progressMode, setProgressMode] = useState<ProgressMode>("live");
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -74,6 +76,20 @@ export function Home({
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void api.getSettings().then((r) => alive && r.ok && setProgressMode(r.value.progress_mode));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const chooseProgress = async (mode: ProgressMode) => {
+    setProgressMode(mode);
+    const r = await api.setSettings(mode);
+    setSaveFailed(!r.ok);
+  };
 
   const toggleArea = (c: Category) => setAreas((a) => (a.includes(c) ? a.filter((x) => x !== c) : [...a, c]));
   const start = () => {
@@ -163,6 +179,18 @@ export function Home({
           </div>
         )}
       </section>
+
+      <fieldset className="areas progress-setting">
+        <legend>{t("ui.home.progress_title")}</legend>
+        {(["live", "staged"] as const).map((m) => (
+          <label key={m} className={`chip${progressMode === m ? " on" : ""}`}>
+            <input type="radio" name="progress-mode" checked={progressMode === m} onChange={() => void chooseProgress(m)} />
+            {t(`ui.home.progress_${m}`)}
+          </label>
+        ))}
+        <p className="muted">{t("ui.home.progress_hint")}</p>
+        {saveFailed && <p role="alert">{t("ui.home.progress_save_error")}</p>}
+      </fieldset>
 
       <ActionDock label={t("ui.home.actions")} actions={actions} />
     </main>

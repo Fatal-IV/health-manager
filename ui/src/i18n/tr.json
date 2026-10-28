@@ -514,7 +514,12 @@
       "welcome_body": "Bu uygulama bilgisayarınızı tarar, bulduğu sorunları anlatır ve çözümünü sunar. Her düzeltmeden önce neyin değişeceğini gösterir ve sizden onay ister.",
       "welcome_ok": "Anladım",
       "areas": "Taranacak alanlar",
-      "pick_one": "Taramak için en az bir alan seç."
+      "pick_one": "Taramak için en az bir alan seç.",
+      "progress_title": "İlerleme ekranı",
+      "progress_live": "Canlı",
+      "progress_staged": "Aşamalı",
+      "progress_hint": "Canlı, her işlem bitince gerçek durumu gösterir; Aşamalı yalnızca aşamaları gösterir.",
+      "progress_save_error": "Seçim kaydedilemedi; bu oturumda geçerli kalır."
     },
     "scanning": {
       "title": "Bilgisayarınız taranıyor…",

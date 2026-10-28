@@ -18,8 +18,44 @@ const openOptions = () => fireEvent.click(screen.getByRole("button", { name: t("
 describe("Home", () => {
   beforeEach(() => {
     vi.spyOn(api, "getSystemSummary").mockResolvedValue({ ok: false, error: "none" });
+    vi.spyOn(api, "getSettings").mockResolvedValue({ ok: true, value: { progress_mode: "live" } });
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("progress setting defaults to live when reading it fails", async () => {
+    vi.spyOn(api, "getSettings").mockResolvedValue({ ok: false, error: "boom" });
+    render(<Home onStart={() => undefined} />);
+    await flush();
+    expect(screen.getByRole("radio", { name: t("ui.home.progress_live") })).toBeChecked();
+  });
+
+  it("progress setting shows the saved mode", async () => {
+    vi.spyOn(api, "getSettings").mockResolvedValue({ ok: true, value: { progress_mode: "staged" } });
+    render(<Home onStart={() => undefined} />);
+    await flush();
+    expect(screen.getByRole("radio", { name: t("ui.home.progress_staged") })).toBeChecked();
+    expect(screen.getByRole("radio", { name: t("ui.home.progress_live") })).not.toBeChecked();
+  });
+
+  it("choosing a progress mode saves it", async () => {
+    const save = vi.spyOn(api, "setSettings").mockResolvedValue({ ok: true, value: { progress_mode: "staged" } });
+    render(<Home onStart={() => undefined} />);
+    await flush();
+    fireEvent.click(screen.getByRole("radio", { name: t("ui.home.progress_staged") }));
+    await flush();
+    expect(save).toHaveBeenCalledWith("staged");
+    expect(screen.getByRole("radio", { name: t("ui.home.progress_staged") })).toBeChecked();
+  });
+
+  it("a failed save keeps the choice and says so", async () => {
+    vi.spyOn(api, "setSettings").mockResolvedValue({ ok: false, error: "disk" });
+    render(<Home onStart={() => undefined} />);
+    await flush();
+    fireEvent.click(screen.getByRole("radio", { name: t("ui.home.progress_staged") }));
+    await flush();
+    expect(screen.getByRole("radio", { name: t("ui.home.progress_staged") })).toBeChecked();
+    expect(screen.getByText(t("ui.home.progress_save_error"))).toBeInTheDocument();
+  });
 
   it("says up front that nothing changes without approval", () => {
     render(<Home onStart={() => undefined} />);

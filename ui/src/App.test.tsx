@@ -18,6 +18,8 @@ vi.mock("./api", async (orig) => {
       onProgress: vi.fn(),
       checkUpdate: vi.fn(),
       getSystemSummary: vi.fn(),
+      getSettings: vi.fn(),
+      setSettings: vi.fn(),
       installUpdate: vi.fn(),
       getReleaseNotes: vi.fn(),
       troubleshootStart: vi.fn(),
@@ -37,6 +39,7 @@ describe("App", () => {
     vi.mocked(api.checkUpdate).mockResolvedValue({ ok: true, value: null });
     vi.mocked(api.getReleaseNotes).mockResolvedValue({ ok: true, value: null });
     vi.mocked(api.getSystemSummary).mockResolvedValue({ ok: false, error: "none" });
+    vi.mocked(api.getSettings).mockResolvedValue({ ok: true, value: { progress_mode: "live" } });
   });
 
   it("the combined button scans, then shows the overview and can open a troubleshooter's result list", async () => {

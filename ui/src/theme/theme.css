@@ -629,3 +629,4 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 .working-ops .spin { animation: upd-spin 1s linear infinite; }
 @media (prefers-reduced-motion: no-preference) { .working-bar > span { transition: width 0.4s ease; } }
 @media (prefers-reduced-motion: reduce) { .working-ops .spin { animation: none; } }
+.progress-setting { margin-top: 16px; }
