@@ -458,10 +458,10 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 .home-pane .notice { background: none; border-radius: 0; border-bottom: 1px solid var(--border); padding: 0 0 12px; margin-bottom: 16px; }
 
 /* Start screen: a short summary of the computer, then one clear way to begin */
-.home-b { max-width: 940px; margin: 0 auto; padding: 64px 40px 40px; }
-@media (min-width: 821px) and (max-width: 1180px) { .home-b { padding-right: 130px; } }
-.home-b .eyebrow { margin: 0; color: var(--muted); font-weight: 600; }
-.home-b h1 { margin: 6px 0 0; font-family: var(--font-display); font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
+.home-b, .overview { max-width: 940px; margin: 0 auto; padding: 64px 40px 40px; }
+@media (min-width: 821px) and (max-width: 1180px) { .home-b, .overview { padding-right: 130px; } }
+.home-b .eyebrow, .overview .eyebrow { margin: 0; color: var(--muted); font-weight: 600; }
+.home-b h1, .overview h1 { margin: 6px 0 0; font-family: var(--font-display); font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
 .home-b .lead { margin: 10px 0 0; max-width: 56ch; }
 .trust { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: var(--text); font-weight: 500; }
 .trust svg { flex: none; color: var(--text); }
@@ -501,8 +501,56 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 999
 .start-options { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .start-options .areas { margin: 0 0 12px; }
 @media (max-width: 720px) {
-  .home-b { padding: 56px 96px 32px 18px; }
+  .home-b, .overview { padding: 56px 96px 32px 18px; }
   .ecg-mini { display: none; }
+}
+
+/* Overview: score and one sentence on top, one glass panel of troubleshooter rows */
+.ov-summary {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  margin-top: 22px;
+  padding: 20px 26px;
+  border-radius: 28px;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 26px 44px -28px rgba(20, 20, 22, 0.4);
+}
+.ov-summary .ring { flex: none; }
+.ov-summary h2 { margin: 0; font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em; }
+.ov-summary p { margin: 2px 0 0; }
+.ov-list {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 6px 0;
+  border-radius: 28px;
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 26px 44px -28px rgba(20, 20, 22, 0.4);
+}
+.ov-item { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 84px; align-items: center; gap: 6px 16px; padding: 14px 24px; }
+.ov-item + .ov-item { border-top: 1px solid var(--border); }
+.ov-item[data-state="problem"] { background: var(--accent-soft); }
+.ov-icon { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--unknown-soft); }
+.ov-item[data-state="healthy"] .ov-icon { background: var(--good-soft); }
+.ov-item[data-state="problem"] .ov-icon { background: var(--warning-soft); }
+.ov-text { display: flex; flex-direction: column; min-width: 0; }
+.ov-text strong { font-weight: 650; letter-spacing: -0.01em; }
+.ov-text .muted { font-size: 0.9rem; }
+.ov-pill { font-size: 0.82rem; font-weight: 650; padding: 4px 11px; border-radius: 999px; white-space: nowrap; background: var(--unknown-soft); color: var(--unknown); }
+.ov-item[data-state="healthy"] .ov-pill { background: var(--good-soft); color: var(--good); }
+.ov-item[data-state="problem"] .ov-pill { background: var(--warning-soft); color: var(--warning); }
+.ov-item button { grid-column: 4; width: 84px; padding: 7px 0; font-size: 0.9rem; }
+@media (max-width: 680px) {
+  .ov-summary { padding: 16px; gap: 16px; }
+  .ov-item { grid-template-columns: 40px minmax(0, 1fr); padding: 14px 16px; }
+  .ov-item .ov-pill, .ov-item button { grid-column: 2; justify-self: start; }
+  .ov-item button { width: auto; padding: 7px 18px; }
 }
 
 /* Update corner: a pill at the bottom right that grows into the window */
