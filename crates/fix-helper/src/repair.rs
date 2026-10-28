@@ -44,17 +44,20 @@ pub fn is_protected_name(image: &str) -> bool {
 fn restart_with(
     run: &mut dyn FnMut(&[&str]) -> Result<i32, &'static str>,
     services: &[&str],
+    done: &mut dyn FnMut(u32),
 ) -> Result<(), &'static str> {
     use crate::actions::keys;
     for s in services {
         let _ = run(&["stop", s, "/y"]);
     }
+    done(1);
     for s in services.iter().rev() {
         match run(&["start", s]) {
             Ok(0 | 2) => {}
             _ => return Err(keys::FAILED),
         }
     }
+    done(2);
     Ok(())
 }
 
@@ -178,6 +181,7 @@ mod imp {
             // Exit 2 = already stopped; not an error.
             run_exe("net.exe", &["stop", s], log)?;
         }
+        crate::progress::done(1);
         let base = windows_dir().join("SoftwareDistribution");
         let old = windows_dir().join("SoftwareDistribution.old");
         let mut outcome = Ok(());
@@ -195,10 +199,12 @@ mod imp {
                 }
             }
         }
+        crate::progress::done(2);
         // Always bring the services back, even when the rename failed.
         for s in SERVICES.iter().rev() {
             let _ = run_exe("net.exe", &["start", s], log);
         }
+        crate::progress::done(3);
         outcome.map(|_| Params::new())
     }
 
@@ -244,8 +250,10 @@ mod imp {
 
     pub fn renew_ip(log: &mut Vec<String>) -> Result<Params, &'static str> {
         let release = run_exe("ipconfig.exe", &["/release"], log)?;
+        crate::progress::done(1);
         // Renew even when the release failed: the aim is a working lease.
         let renew = run_exe("ipconfig.exe", &["/renew"], log)?;
+        crate::progress::done(2);
         if renew == 0 {
             Ok(Params::new())
         } else {
@@ -268,7 +276,11 @@ mod imp {
         services: &[&str],
         log: &mut Vec<String>,
     ) -> Result<Params, &'static str> {
-        restart_with(&mut |args| run_exe("net.exe", args, log), services)?;
+        restart_with(
+            &mut |args| run_exe("net.exe", args, log),
+            services,
+            &mut crate::progress::done,
+        )?;
         Ok(Params::new())
     }
 
@@ -285,6 +297,7 @@ mod imp {
     pub fn clear_print_queue(log: &mut Vec<String>) -> Result<Params, &'static str> {
         use crate::winfs::{delete_verified, is_reparse};
         let _ = run_exe("net.exe", &["stop", "Spooler", "/y"], log);
+        crate::progress::done(1);
         let dir = system32_dir().join("spool").join("PRINTERS");
         let cleaned = match final_path(&dir) {
             Ok(root) => {
@@ -309,8 +322,11 @@ mod imp {
                 Err(keys::ITEM_NOT_FOUND)
             }
         };
+        crate::progress::done(2);
         // Always bring the spooler back, even when the folder was missing.
-        match run_exe("net.exe", &["start", "Spooler"], log) {
+        let started = run_exe("net.exe", &["start", "Spooler"], log);
+        crate::progress::done(3);
+        match started {
             Ok(0 | 2) => cleaned,
             _ => Err(keys::FAILED),
         }
@@ -330,7 +346,9 @@ mod imp {
             &["/Online", "/Cleanup-Image", "/RestoreHealth"],
             log,
         )?;
+        crate::progress::done(1);
         let sfc = run_exe("sfc.exe", &["/scannow"], log)?;
+        crate::progress::done(2);
         // DISM: 0 ok. SFC: 0 no violations, 1 repaired; anything else failed.
         if dism == 0 && (sfc == 0 || sfc == 1) {
             Ok(Params::from([("repaired".into(), (sfc == 1).to_string())]))
@@ -412,6 +430,7 @@ mod tests {
                 answer(args)
             },
             services,
+            &mut |_| {},
         );
         (r, calls)
     }
@@ -429,6 +448,21 @@ mod tests {
                 vec!["start", "A"],
             ]
         );
+    }
+
+    #[test]
+    fn restart_with_reports_stop_then_start() {
+        let reported = |answer: fn(&[&str]) -> Result<i32, &'static str>| {
+            let mut seen = Vec::new();
+            let _ = restart_with(&mut |a| answer(a), &["A"], &mut |n| seen.push(n));
+            seen
+        };
+        assert_eq!(reported(|_| Ok(0)), vec![1, 2]);
+        assert_eq!(
+            reported(|a| if a[0] == "stop" { Err(crate::actions::keys::FAILED) } else { Ok(0) }),
+            vec![1, 2]
+        );
+        assert_eq!(reported(|a| Ok(if a[0] == "start" { 1060 } else { 0 })), vec![1]);
     }
 
     #[test]

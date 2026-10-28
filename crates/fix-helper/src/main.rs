@@ -11,6 +11,7 @@
 mod actions;
 mod cli;
 mod log;
+mod progress;
 mod repair;
 mod snapshot;
 mod winfs;
@@ -112,6 +113,7 @@ fn real_main() -> i32 {
         let r = FixResult::fail(keys::INVALID, vec![e.to_string()]);
         return finish(&req.result, &req.fix, arg, r, EXIT_INVALID);
     }
+    progress::init(&req.result);
     let (r, code) = match actions::run(fix, arg) {
         Ok(rep) => (
             FixResult {
