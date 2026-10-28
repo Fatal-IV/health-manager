@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import App from "./App";
-import { api } from "./api";
+import { api, TROUBLESHOOTERS } from "./api";
 import { t } from "./i18n";
 import { applied, check, issue, plan, report } from "./testing/fixtures";
 
@@ -50,7 +50,7 @@ describe("App", () => {
     await flush();
     expect(await screen.findByText(t("ui.overview.title"))).toBeInTheDocument();
     expect(api.startScan).toHaveBeenCalledWith("quick");
-    expect(api.troubleshootStart).toHaveBeenCalledTimes(4);
+    expect(api.troubleshootStart).toHaveBeenCalledTimes(TROUBLESHOOTERS.length);
     fireEvent.click(screen.getByRole("button", { name: t("ui.overview.see_results") }));
     expect(await screen.findByText(t("ui.results.title"))).toBeInTheDocument();
   });

@@ -33,10 +33,12 @@ pub enum FixId {
     RenewIp,
     /// Resets the Winsock catalog; a restart is needed to finish.
     ResetWinsock,
+    /// Restarts the Windows audio services (`Audiosrv`, `AudioEndpointBuilder`).
+    RestartAudioServices,
 }
 
 impl FixId {
-    pub const ALL: [FixId; 13] = [
+    pub const ALL: [FixId; 14] = [
         FixId::CleanTemp,
         FixId::EmptyRecycleBin,
         FixId::CleanUpdateLeftovers,
@@ -50,6 +52,7 @@ impl FixId {
         FixId::FlushDns,
         FixId::RenewIp,
         FixId::ResetWinsock,
+        FixId::RestartAudioServices,
     ];
 
     /// Exhaustive (no wildcard): a new variant fails to compile until it is
@@ -70,6 +73,7 @@ impl FixId {
             FixId::FlushDns => 10,
             FixId::RenewIp => 11,
             FixId::ResetWinsock => 12,
+            FixId::RestartAudioServices => 13,
         }
     }
 
@@ -87,7 +91,8 @@ impl FixId {
             | FixId::ReadBootTime
             | FixId::FlushDns
             | FixId::RenewIp
-            | FixId::ResetWinsock => false,
+            | FixId::ResetWinsock
+            | FixId::RestartAudioServices => false,
         }
     }
 
@@ -106,6 +111,7 @@ impl FixId {
             FixId::FlushDns => "flush_dns",
             FixId::RenewIp => "renew_ip",
             FixId::ResetWinsock => "reset_winsock",
+            FixId::RestartAudioServices => "restart_audio_services",
         }
     }
 }
@@ -173,6 +179,7 @@ fn change_count(fix: FixId) -> usize {
         FixId::FlushDns => 1,
         FixId::RenewIp => 2,
         FixId::ResetWinsock => 2,
+        FixId::RestartAudioServices => 2,
     }
 }
 
@@ -189,6 +196,7 @@ fn needs_admin(fix: FixId) -> bool {
             | FixId::FlushDns
             | FixId::RenewIp
             | FixId::ResetWinsock
+            | FixId::RestartAudioServices
     )
 }
 
@@ -310,6 +318,7 @@ mod tests {
             FixId::FlushDns => FixId::FlushDns,
             FixId::RenewIp => FixId::RenewIp,
             FixId::ResetWinsock => FixId::ResetWinsock,
+            FixId::RestartAudioServices => FixId::RestartAudioServices,
         }
     }
 
@@ -329,6 +338,7 @@ mod tests {
             FixId::FlushDns,
             FixId::RenewIp,
             FixId::ResetWinsock,
+            FixId::RestartAudioServices,
         ]
         .into_iter()
         .map(witness)
@@ -438,6 +448,18 @@ mod tests {
             RunSfcDism,
         ] {
             assert!(!fix_plan(f, None).reversible, "{f:?}");
+        }
+    }
+
+    #[allow(clippy::single_element_loop)] // the list grows with each device troubleshooter
+    #[test]
+    fn device_fixes_have_expected_plans() {
+        for f in [FixId::RestartAudioServices] {
+            let p = fix_plan(f, None);
+            assert!(p.needs_admin, "{f:?}");
+            assert!(!p.reversible, "{f:?}");
+            assert_eq!(p.changes.len(), 2, "{f:?}");
+            assert!(validate_arg(f, Some("x")).is_err(), "{f:?}");
         }
     }
 

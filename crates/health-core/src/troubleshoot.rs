@@ -14,15 +14,17 @@ pub enum TroubleshooterId {
     WindowsUpdate,
     SystemFiles,
     Slowness,
+    Audio,
 }
 
 impl TroubleshooterId {
     /// Every troubleshooter, in the order the interface lists them.
-    pub const ALL: [TroubleshooterId; 4] = [
+    pub const ALL: [TroubleshooterId; 5] = [
         TroubleshooterId::Network,
         TroubleshooterId::WindowsUpdate,
         TroubleshooterId::SystemFiles,
         TroubleshooterId::Slowness,
+        TroubleshooterId::Audio,
     ];
 
     pub const fn as_str(self) -> &'static str {
@@ -31,6 +33,7 @@ impl TroubleshooterId {
             TroubleshooterId::WindowsUpdate => "windows_update",
             TroubleshooterId::SystemFiles => "system_files",
             TroubleshooterId::Slowness => "slowness",
+            TroubleshooterId::Audio => "audio",
         }
     }
 }
@@ -72,10 +75,13 @@ pub enum Test {
     RamOk,
     /// Processor use is under 90 %.
     CpuOk,
+    /// The Windows audio services are running.
+    AudioServices,
 }
 
 const UPDATE_STALE_DAYS: u64 = 60;
 const UPDATE_SERVICES: [&str; 3] = ["wuauserv", "bits", "cryptsvc"];
+const AUDIO_SERVICES: [&str; 2] = ["Audiosrv", "AudioEndpointBuilder"];
 const TEMP_LIMIT_BYTES: u64 = 1024 * 1024 * 1024;
 
 fn from_bool<E>(r: Result<bool, E>) -> Outcome {
@@ -84,6 +90,20 @@ fn from_bool<E>(r: Result<bool, E>) -> Outcome {
         Ok(false) => Outcome::Fail,
         Err(_) => Outcome::Unknown,
     }
+}
+
+/// Pass when every service runs; a stopped, disabled or missing one fails,
+/// and a failure outranks a service that could not be read.
+fn services_running(p: &dyn SystemProbe, names: &[&str]) -> Outcome {
+    let mut outcome = Outcome::Pass;
+    for name in names {
+        match p.service_state(name) {
+            Ok(ServiceState::Running) => {}
+            Ok(_) => return Outcome::Fail,
+            Err(_) => outcome = Outcome::Unknown,
+        }
+    }
+    outcome
 }
 
 impl Test {
@@ -141,6 +161,7 @@ impl Test {
                 Ok((used, total)) if total > 0 => from_bool::<()>(Ok(used * 100 < total * 85)),
                 _ => Outcome::Unknown,
             },
+            Test::AudioServices => services_running(p, &AUDIO_SERVICES),
             Test::CpuOk => match p.cpu_percent() {
                 Ok(c) => from_bool::<()>(Ok(c < 90.0)),
                 Err(_) => Outcome::Unknown,
@@ -199,6 +220,12 @@ const SLOWNESS_STEPS: [Step; 2] = [
     Step { id: "slow.empty_bin", fix: FixId::EmptyRecycleBin, recheck: Some(Test::DiskFree) },
 ];
 
+const AUDIO_STEPS: [Step; 1] = [Step {
+    id: "audio.restart_services",
+    fix: FixId::RestartAudioServices,
+    recheck: Some(Test::AudioServices),
+}];
+
 pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
     match id {
         TroubleshooterId::Network => Troubleshooter {
@@ -224,6 +251,12 @@ pub fn for_id(id: TroubleshooterId) -> Troubleshooter {
             diagnose: &[Test::DiskFree, Test::TempSmall],
             steps: &SLOWNESS_STEPS,
             hints: &[(Test::RamOk, "high_ram"), (Test::CpuOk, "high_cpu")],
+        },
+        TroubleshooterId::Audio => Troubleshooter {
+            id,
+            diagnose: &[Test::AudioServices],
+            steps: &AUDIO_STEPS,
+            hints: &[],
         },
     }
 }
@@ -425,7 +458,7 @@ mod tests {
 
     #[test]
     fn ids_parse_and_every_id_has_a_troubleshooter() {
-        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2)] {
+        for (name, steps) in [("network", 3), ("windows_update", 2), ("system_files", 1), ("slowness", 2), ("audio", 1)] {
             let id: TroubleshooterId = name.parse().unwrap();
             assert_eq!(id.as_str(), name);
             assert_eq!(for_id(id).steps.len(), steps, "{name}");
@@ -503,6 +536,51 @@ mod tests {
         assert!(t.hints(&broken).is_empty());
         // Hints do not turn a healthy result into a repair.
         assert_eq!(t.start(&busy), State::Healthy);
+    }
+
+    fn audio_ok() -> FakeProbe {
+        let mut p = FakeProbe::default();
+        p.services.insert("Audiosrv".into(), ServiceState::Running);
+        p.services.insert("AudioEndpointBuilder".into(), ServiceState::Running);
+        p
+    }
+
+    #[test]
+    fn audio_is_healthy_when_both_services_run() {
+        assert_eq!(for_id(TroubleshooterId::Audio).start(&audio_ok()), State::Healthy);
+    }
+
+    #[test]
+    fn audio_stopped_disabled_or_missing_suggests_the_restart() {
+        let t = for_id(TroubleshooterId::Audio);
+        for state in [ServiceState::Stopped, ServiceState::Disabled, ServiceState::Missing] {
+            let mut p = audio_ok();
+            p.services.insert("Audiosrv".into(), state);
+            assert_eq!(t.start(&p), suggest(0), "{state:?}");
+        }
+        assert_eq!(t.start(&FakeProbe::default()), suggest(0));
+        assert_eq!(t.steps[0].fix, crate::fixes::FixId::RestartAudioServices);
+    }
+
+    #[test]
+    fn audio_unreadable_services_are_unmeasured_not_healthy() {
+        let p = FakeProbe {
+            services_error: Some(ProbeError::Unavailable("x".into())),
+            ..audio_ok()
+        };
+        assert_eq!(
+            for_id(TroubleshooterId::Audio).start(&p),
+            State::Suggest { step: 0, unmeasured: true }
+        );
+    }
+
+    #[test]
+    fn audio_restart_resolves_when_services_run_again() {
+        let t = for_id(TroubleshooterId::Audio);
+        assert_eq!(t.after_fix(0, &audio_ok()), State::Resolved { reboot: false });
+        let mut still = audio_ok();
+        still.services.insert("Audiosrv".into(), ServiceState::Stopped);
+        assert_eq!(t.after_fix(0, &still), State::Exhausted);
     }
 
     #[test]

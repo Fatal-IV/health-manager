@@ -76,6 +76,7 @@ pub fn run(fix: FixId, arg: Option<&str>) -> Result<ActionReport, ActionError> {
         FixId::FlushDns => crate::repair::flush_dns(&mut log),
         FixId::RenewIp => crate::repair::renew_ip(&mut log),
         FixId::ResetWinsock => crate::repair::reset_winsock(&mut log),
+        FixId::RestartAudioServices => crate::repair::restart_audio_services(&mut log),
         FixId::ReadBootTime => read_boot_time(&mut log),
     };
     let message = (fix == FixId::ReadBootTime).then_some(keys::BOOT_READ);
@@ -377,6 +378,15 @@ mod tests {
     #[test]
     fn network_fixes_reject_an_argument_before_touching_anything() {
         for fix in [FixId::FlushDns, FixId::RenewIp, FixId::ResetWinsock] {
+            let e = run(fix, Some("x")).unwrap_err();
+            assert_eq!(e.key, keys::INVALID, "{fix:?}");
+        }
+    }
+
+    #[allow(clippy::single_element_loop)] // the list grows with each device troubleshooter
+    #[test]
+    fn device_fixes_reject_an_argument_before_touching_anything() {
+        for fix in [FixId::RestartAudioServices] {
             let e = run(fix, Some("x")).unwrap_err();
             assert_eq!(e.key, keys::INVALID, "{fix:?}");
         }

@@ -86,6 +86,22 @@ fn shell_metacharacters_in_arg_are_not_executed() {
     assert!(!sentinel.exists());
 }
 
+#[allow(clippy::single_element_loop)] // the list grows with each device troubleshooter
+#[test]
+fn device_fixes_with_an_argument_exit_2_and_run_nothing() {
+    let dir = scratch("device");
+    let sentinel = dir.join("pwned.txt");
+    let echo = format!("x & echo x > \"{}\"", sentinel.display());
+    for fix in ["restart_audio_services"] {
+        for arg in ["x", "x & calc", echo.as_str(), "$(calc)"] {
+            let r = run_in(&dir, &["--fix", fix, "--arg", arg], true);
+            assert_eq!(r.code, 2, "{fix} {arg:?}");
+            assert_failed_result(&r, "fix.result.invalid");
+        }
+    }
+    assert!(!sentinel.exists());
+}
+
 #[test]
 fn result_file_is_written_even_on_failure() {
     let dir = scratch("failure");

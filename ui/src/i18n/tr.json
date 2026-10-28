@@ -216,6 +216,13 @@
         "1": "Windows'un ağ bileşenleri varsayılan duruma döndürülecek. İşlemin tamamlanması için bilgisayarı yeniden başlatmanız gerekir.",
         "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
       }
+    },
+    "restart_audio_services": {
+      "summary": "Ses servislerini yeniden başlat",
+      "change": {
+        "1": "Windows ses servisleri durdurulup yeniden başlatılacak. Çalan sesler birkaç saniyeliğine kesilir.",
+        "2": "Bu işlem yönetici izni ister, geri alınamaz ve kayda geçirilir."
+      }
     }
   },
   "category": {
@@ -286,13 +293,15 @@
         "network": "Ağ ve internet",
         "windows_update": "Windows Update",
         "system_files": "Sistem dosyaları",
-        "slowness": "Yavaşlık"
+        "slowness": "Yavaşlık",
+        "audio": "Ses"
       },
       "descriptions": {
         "network": "İnternet yok ya da sayfalar açılmıyor",
         "windows_update": "Güncellemeler inmiyor ya da takılıyor",
         "system_files": "Bozuk ya da eksik Windows dosyaları",
-        "slowness": "Bilgisayar yavaş ya da disk dolu"
+        "slowness": "Bilgisayar yavaş ya da disk dolu",
+        "audio": "Ses gelmiyor ya da kesiliyor"
       },
       "loading": "Denetleniyor…",
       "error": "Sorun giderici başlatılamadı. Biraz sonra tekrar deneyin.",
@@ -334,6 +343,11 @@
           "healthy": "Disk boşluğu ve geçici dosyalar normal görünüyor.",
           "resolved": "Temizlikten sonra disk ve geçici dosyalar normale döndü.",
           "exhausted": "Temizlik yeterli olmadı. Taramayı çalıştırıp Performans bölümündeki başlangıç programlarına ve ağır işlemlere bakın."
+        },
+        "audio": {
+          "healthy": "Windows ses servisleri çalışıyor. Sorun aygıtta ya da ses ayarında olabilir: hoparlör ya da kulaklığın bağlı ve sesin açık olduğunu denetleyin.",
+          "resolved": "Ses servisleri yeniden başlatıldı ve çalışıyor. Sesi tekrar deneyin.",
+          "exhausted": "Ses servisleri yeniden başlatılamadı. Bilgisayarı yeniden başlatıp tekrar deneyin; sürerse ses aygıtı sürücüsünü denetleyin."
         }
       },
       "why": {
@@ -344,7 +358,8 @@
         "reset_windows_update": "Güncelleme bileşenleri bozulmuş olabilir; klasörler yedeklenerek sıfırlanır ve servisler yeniden başlatılır.",
         "run_sfc_dism": "Bozuk ya da eksik Windows dosyaları birçok tuhaf sorunun sebebi olabilir; Windows'un kendi araçlarıyla taranıp onarılır.",
         "clean_temp": "Önce en hafif adım: geçici dosyalar yer kaplar ve sistemi yavaşlatabilir.",
-        "empty_recycle_bin": "Geri dönüşüm kutusu disk alanı tutuyor olabilir."
+        "empty_recycle_bin": "Geri dönüşüm kutusu disk alanı tutuyor olabilir.",
+        "restart_audio_services": "Ses servisleri takılmış ya da durmuş olabilir; yeniden başlatmak çoğu zaman sesi geri getirir."
       }
     },
     "home": {

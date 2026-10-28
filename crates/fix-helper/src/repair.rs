@@ -37,6 +37,27 @@ pub fn is_protected_name(image: &str) -> bool {
     PROTECTED.contains(&base.as_str())
 }
 
+/// Stops each service in the given order, then starts them in reverse. A
+/// failed stop never blocks the start (the service may simply be stopped
+/// already); a start that fails, other than "already running" (2), is the error.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn restart_with(
+    run: &mut dyn FnMut(&[&str]) -> Result<i32, &'static str>,
+    services: &[&str],
+) -> Result<(), &'static str> {
+    use crate::actions::keys;
+    for s in services {
+        let _ = run(&["stop", s, "/y"]);
+    }
+    for s in services.iter().rev() {
+        match run(&["start", s]) {
+            Ok(0 | 2) => {}
+            _ => return Err(keys::FAILED),
+        }
+    }
+    Ok(())
+}
+
 #[cfg(windows)]
 mod imp {
     use super::*;
@@ -232,6 +253,19 @@ mod imp {
         }
     }
 
+    /// `services` are fixed names from this file, never caller input.
+    fn restart_services(
+        services: &[&str],
+        log: &mut Vec<String>,
+    ) -> Result<Params, &'static str> {
+        restart_with(&mut |args| run_exe("net.exe", args, log), services)?;
+        Ok(Params::new())
+    }
+
+    pub fn restart_audio_services(log: &mut Vec<String>) -> Result<Params, &'static str> {
+        restart_services(&["Audiosrv", "AudioEndpointBuilder"], log)
+    }
+
     pub fn run_sfc_dism(log: &mut Vec<String>) -> Result<Params, &'static str> {
         let dism = run_exe(
             "dism.exe",
@@ -286,6 +320,9 @@ mod stub {
     pub fn reset_winsock(l: &mut Vec<String>) -> Result<Params, &'static str> {
         na(l)
     }
+    pub fn restart_audio_services(l: &mut Vec<String>) -> Result<Params, &'static str> {
+        na(l)
+    }
 }
 #[cfg(not(windows))]
 pub use stub::*;
@@ -293,6 +330,63 @@ pub use stub::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn recorded(
+        services: &[&str],
+        mut answer: impl FnMut(&[&str]) -> Result<i32, &'static str>,
+    ) -> (Result<(), &'static str>, Vec<Vec<String>>) {
+        let mut calls: Vec<Vec<String>> = Vec::new();
+        let r = restart_with(
+            &mut |args| {
+                calls.push(args.iter().map(|a| a.to_string()).collect());
+                answer(args)
+            },
+            services,
+        );
+        (r, calls)
+    }
+
+    #[test]
+    fn restart_with_stops_in_order_then_starts_in_reverse() {
+        let (r, calls) = recorded(&["A", "B"], |_| Ok(0));
+        assert_eq!(r, Ok(()));
+        assert_eq!(
+            calls,
+            vec![
+                vec!["stop", "A", "/y"],
+                vec!["stop", "B", "/y"],
+                vec!["start", "B"],
+                vec!["start", "A"],
+            ]
+        );
+    }
+
+    #[test]
+    fn restart_with_ignores_stop_errors_and_still_starts() {
+        let (r, calls) = recorded(&["A", "B"], |args| {
+            if args[0] == "stop" {
+                Err(crate::actions::keys::FAILED)
+            } else {
+                Ok(0)
+            }
+        });
+        assert_eq!(r, Ok(()));
+        assert_eq!(calls.len(), 4);
+    }
+
+    #[test]
+    fn restart_with_accepts_start_exit_2_and_fails_on_other_codes() {
+        let start_with = |code| {
+            recorded(&["A"], move |args| Ok(if args[0] == "start" { code } else { 0 })).0
+        };
+        assert_eq!(start_with(2), Ok(()));
+        assert_eq!(start_with(1060), Err(crate::actions::keys::FAILED));
+        let erroring = recorded(&["A"], |args| {
+            if args[0] == "start" { Err(crate::actions::keys::FAILED) } else { Ok(0) }
+        })
+        .0;
+        assert_eq!(erroring, Err(crate::actions::keys::FAILED));
+    }
 
     #[test]
     fn protected_names_are_matched_by_basename() {
