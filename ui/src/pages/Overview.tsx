@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, type TroubleshooterId, type TroubleshootState } from "../api";
+import { api, TROUBLESHOOTERS, type TroubleshooterId, type TroubleshootState } from "../api";
 import { t } from "../i18n";
-import { TROUBLESHOOTERS } from "./TroubleshootPicker";
 
 type Row = "loading" | "healthy" | "problem" | "unmeasured" | "notest";
 

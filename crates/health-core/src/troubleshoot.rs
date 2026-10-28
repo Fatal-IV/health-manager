@@ -17,6 +17,14 @@ pub enum TroubleshooterId {
 }
 
 impl TroubleshooterId {
+    /// Every troubleshooter, in the order the interface lists them.
+    pub const ALL: [TroubleshooterId; 4] = [
+        TroubleshooterId::Network,
+        TroubleshooterId::WindowsUpdate,
+        TroubleshooterId::SystemFiles,
+        TroubleshooterId::Slowness,
+    ];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             TroubleshooterId::Network => "network",
@@ -30,14 +38,9 @@ impl TroubleshooterId {
 impl FromStr for TroubleshooterId {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, String> {
-        [
-            TroubleshooterId::Network,
-            TroubleshooterId::WindowsUpdate,
-            TroubleshooterId::SystemFiles,
-            TroubleshooterId::Slowness,
-        ]
-        .into_iter()
-        .find(|i| i.as_str() == s)
+        TroubleshooterId::ALL
+            .into_iter()
+            .find(|i| i.as_str() == s)
         .ok_or_else(|| format!("unknown troubleshooter: {}", s.chars().take(32).collect::<String>()))
     }
 }
@@ -500,5 +503,46 @@ mod tests {
         assert!(t.hints(&broken).is_empty());
         // Hints do not turn a healthy result into a repair.
         assert_eq!(t.start(&busy), State::Healthy);
+    }
+
+    #[test]
+    fn ids_match_the_interface_list() {
+        let api = include_str!("../../../ui/src/api.ts");
+        let line = api
+            .lines()
+            .find(|l| l.starts_with("export const TROUBLESHOOTERS"))
+            .expect("TROUBLESHOOTERS in api.ts");
+        let listed: Vec<&str> = line.split('"').skip(1).step_by(2).collect();
+        let ours: Vec<&str> = TroubleshooterId::ALL.iter().map(|i| i.as_str()).collect();
+        assert_eq!(listed, ours);
+    }
+
+    #[test]
+    fn every_troubleshooter_has_its_texts_in_tr_json() {
+        let tr: serde_json::Value =
+            serde_json::from_str(include_str!("../../../ui/src/i18n/tr.json")).unwrap();
+        let has = |key: &str| {
+            let mut v = &tr;
+            for part in key.split('.') {
+                v = v.get(part).unwrap_or(&serde_json::Value::Null);
+            }
+            v.as_str().is_some_and(|s| !s.trim().is_empty())
+        };
+        for id in TroubleshooterId::ALL {
+            let n = id.as_str();
+            for key in [
+                format!("ui.troubleshoot.titles.{n}"),
+                format!("ui.troubleshoot.descriptions.{n}"),
+                format!("ui.troubleshoot.texts.{n}.healthy"),
+                format!("ui.troubleshoot.texts.{n}.resolved"),
+                format!("ui.troubleshoot.texts.{n}.exhausted"),
+            ] {
+                assert!(has(&key), "missing {key}");
+            }
+            for step in for_id(id).steps {
+                let key = format!("ui.troubleshoot.why.{}", step.fix.as_str());
+                assert!(has(&key), "missing {key}");
+            }
+        }
     }
 }

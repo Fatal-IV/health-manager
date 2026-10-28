@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { api, type TroubleshooterId, type TroubleshootState } from "../api";
+import { api, TROUBLESHOOTERS, type TroubleshooterId, type TroubleshootState } from "../api";
 import { t } from "../i18n";
 import { Overview } from "./Overview";
 
@@ -41,6 +41,13 @@ describe("Overview", () => {
     expect(row("windows_update")).toHaveTextContent(t("ui.overview.status_problem"));
     expect(row("system_files")).toHaveTextContent(t("ui.overview.status_notest"));
     expect(row("slowness")).toHaveTextContent(t("ui.overview.status_unmeasured"));
+  });
+
+  it("has a row for every troubleshooter", async () => {
+    vi.spyOn(api, "troubleshootStart").mockImplementation(async () => ok(st()));
+    render(<Overview score={null} onOpen={() => undefined} onResults={() => undefined} onBack={() => undefined} />);
+    await screen.findAllByText(t("ui.overview.status_healthy"));
+    for (const id of TROUBLESHOOTERS) expect(row(id)).toBeInTheDocument();
   });
 
   it("a test that could not run is never shown as healthy", async () => {

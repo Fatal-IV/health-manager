@@ -381,7 +381,10 @@ mod tests {
 
     #[test]
     fn troubleshoot_response_says_whether_there_is_a_quick_test() {
-        for (id, tested) in [("network", true), ("windows_update", true), ("slowness", true), ("system_files", false)] {
+        for id in health_core::troubleshoot::TroubleshooterId::ALL {
+            let id = id.as_str();
+            // Fixed by the spec: these have no cheap, safe test and always offer their repair.
+            let tested = !["system_files", "bluetooth", "camera"].contains(&id);
             let t = troubleshooter(id).unwrap();
             assert_eq!(troubleshoot_start_response(&t, &FakeProbe::default()).tested, tested, "{id}");
         }
